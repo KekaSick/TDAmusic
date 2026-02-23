@@ -116,10 +116,3 @@ base_genre_dir = str(project_root / "data/top50musicSpotify")
 
 ### `chaos_methods.py`
 - Методы анализа хаоса для аудио
-
-## Примечания
-
-- Виртуальное окружение `venv/` не должно попадать в git (уже в .gitignore)
-- Файл `.env` с API ключами не должен попадать в git
-- Большие данные в `data/` могут быть исключены из git (раскомментируйте в .gitignore)
-
