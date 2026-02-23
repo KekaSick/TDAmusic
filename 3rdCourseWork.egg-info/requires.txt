@@ -1,0 +1,15 @@
+numpy
+scipy
+librosa
+soundfile
+matplotlib
+scikit-learn
+umap-learn
+hdbscan
+ripser
+persim
+plotly
+pandas
+tqdm
+antropy
+ordpy

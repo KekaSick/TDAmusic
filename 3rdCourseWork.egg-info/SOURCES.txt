@@ -1,0 +1,11 @@
+README.md
+setup.py
+3rdCourseWork.egg-info/PKG-INFO
+3rdCourseWork.egg-info/SOURCES.txt
+3rdCourseWork.egg-info/dependency_links.txt
+3rdCourseWork.egg-info/requires.txt
+3rdCourseWork.egg-info/top_level.txt
+src/__init__.py
+src/chaos_methods.py
+src/mir_bar_features.py
+src/topology_methods.py
