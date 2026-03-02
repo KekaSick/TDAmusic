@@ -492,14 +492,20 @@ def compute_bar_embeddings(
             bar_embeddings[bar_idx, 49] = bar_onset.mean()
             bar_embeddings[bar_idx, 50] = bar_onset.std()
 
-            # Beat strength через predominant local pulse
-            try:
-                pulse = librosa.beat.plp(
-                    onset_envelope=bar_onset, sr=actual_sr,
-                    hop_length=hop_length,
-                )
-                bar_embeddings[bar_idx, 51] = pulse.max()
-            except Exception:
+            # Beat strength via autocorrelation of onset envelope
+            # (plp() needs longer segments; autocorrelation works on bar-level)
+            if len(bar_onset) > 10:
+                autocorr = np.correlate(bar_onset, bar_onset, mode='full')
+                autocorr = autocorr[len(autocorr) // 2:]
+                autocorr /= (autocorr[0] + 1e-9)
+                # Peak autocorrelation after lag=1 → rhythmic regularity
+                if len(autocorr) > 3:
+                    bar_embeddings[bar_idx, 51] = float(
+                        np.max(autocorr[2:min(len(autocorr), 50)])
+                    )
+                else:
+                    bar_embeddings[bar_idx, 51] = 0.0
+            else:
                 bar_embeddings[bar_idx, 51] = 0.0
 
     logger.info(
@@ -614,3 +620,73 @@ def full_track_embedding(bar_embeddings: np.ndarray) -> np.ndarray:
     result = np.concatenate(parts).astype(np.float32)
     assert result.shape == (523,), f"Expected (523,), got {result.shape}"
     return result
+
+
+def compact_track_embedding(bar_embeddings: np.ndarray) -> np.ndarray:
+    """
+    Компактная агрегация bar → track (рекомендуемая).
+
+    (n_bars, 52) → (211,)
+
+    Убраны:
+    - median (r>0.95 с mean)
+    - sections (4×52=208D — слишком много для 999 сэмплов)
+    - delta_mean (оставлен только delta_std = волатильность)
+
+    Структура:
+      ├── mean       (52D):  что в среднем происходит
+      ├── std        (52D):  насколько вариативно
+      ├── iqr        (52D):  робастная вариативность
+      ├── delta_std  (52D):  траекторная волатильность
+      └── meta       (3D):  n_bars, mean_energy, diatonicity_var
+    """
+    n_bars = len(bar_embeddings)
+    parts: list[np.ndarray] = []
+
+    # Глобальные статистики (52 × 3 = 156D)
+    parts.append(bar_embeddings.mean(axis=0))                         # 52
+    parts.append(bar_embeddings.std(axis=0))                          # 52
+    parts.append(
+        np.percentile(bar_embeddings, 75, axis=0)
+        - np.percentile(bar_embeddings, 25, axis=0)
+    )                                                                  # 52
+
+    # Траекторная волатильность (52D)
+    if n_bars > 1:
+        deltas = np.diff(bar_embeddings, axis=0)
+        parts.append(deltas.std(axis=0))                               # 52
+    else:
+        parts.append(np.zeros(52, dtype=np.float32))
+
+    # Мета (3D)
+    parts.append(np.array([
+        float(n_bars),
+        float(bar_embeddings[:, 47].mean()),       # mean energy (log_rms)
+        float(bar_embeddings[:, 15].std()),         # diatonicity variability
+    ], dtype=np.float32))
+
+    result = np.concatenate(parts).astype(np.float32)
+    assert result.shape == (211,), f"Expected (211,), got {result.shape}"
+    return result
+
+
+def feature_names_compact() -> List[str]:
+    """
+    Имена всех 211 компонент compact track-level вектора
+    (compact_track_embedding).
+    """
+    base = _BASE_FEATURE_NAMES
+    names: List[str] = []
+
+    # Глобальные статистики (3 × 52 = 156)
+    for prefix in ('mean', 'std', 'iqr'):
+        names.extend(f'{prefix}_{n}' for n in base)
+
+    # Траекторная волатильность (52)
+    names.extend(f'delta_std_{n}' for n in base)
+
+    # Мета (3)
+    names.extend(['n_bars', 'mean_energy', 'diatonicity_variability'])
+
+    assert len(names) == 211, f"Expected 211, got {len(names)}"
+    return names
