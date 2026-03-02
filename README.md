@@ -1,118 +1,114 @@
-# Music Topology Analysis Project
+# Interpretable Music Embeddings for Genre Analysis
 
-Проект для анализа топологии музыки с использованием методов TDA (Topological Data Analysis) и MIR (Music Information Retrieval).
+52-dimensional interpretable audio embedding grounded in European music theory for genre classification and embedding space analysis.
 
-## Структура проекта
+## Key Results
+
+- **71.7% accuracy** on GTZAN (10 genres, 999 tracks) with Random Forest — surpassing the foundational result of Tzanetakis & Cook (2002) at 61.0%
+- **Full interpretability**: every component has a precise music-theoretic meaning (diatonicity, Tonnetz position, sensory dissonance, tonal stability, etc.)
+- **Topologically aware**: respects circular topology of pitch classes ($S^1$), toroidal structure of Tonnetz ($T^3$), simplex structure of chroma ($\Delta^{11}$)
+
+## Feature Vector Architecture (52D, 9 blocks)
+
+| Block | Features | Dim | Musical Domain |
+|-------|----------|-----|----------------|
+| 1 | Normalized chromagram | 12 | Pitch |
+| 2 | Tonal DFT magnitudes | 5 | Pitch (transposition-invariant) |
+| 3 | Tonal DFT phases | 5 | Pitch (key) |
+| 4 | Tonnetz coordinates | 6 | Harmonic proximity |
+| 5 | Harmonic tension | 3 | Dissonance, tonal stability |
+| 6 | MFCC | 13 | Timbre |
+| 7 | Spectral descriptors | 3 | Timbre |
+| 8 | Dynamics | 2 | Loudness |
+| 9 | Rhythmic features | 3 | Rhythm |
+
+## Project Structure
 
 ```
 3rdCourseWork/
-├── notebooks/          # Jupyter ноутбуки для анализа и визуализации
-│   ├── topology_visualization.ipynb
-│   ├── topology_tda_pipeline.ipynb
+├── src/                          # Python modules
+│   ├── interpretable_embeddings.py  # 52D bar-level feature vector
+│   ├── embedding_pipeline.py        # Track-level aggregation pipeline
+│   ├── topology_methods.py          # CQT-chroma bar embeddings
+│   ├── mir_bar_features.py          # MIR bar-level features
+│   └── chaos_methods.py             # Chaos analysis methods
+│
+├── notebooks_tda/                # Jupyter notebooks
+│   ├── vector_validation_gtzan.ipynb  # GTZAN validation (classification, importance, ablation)
+│   ├── vector_validation.ipynb        # Feature sanity checks
+│   ├── umap_analysis.ipynb            # UMAP + HDBSCAN embedding space analysis
+│   ├── topology_mir_umap_visualization.ipynb
 │   ├── topology_mir_visualization.ipynb
-│   └── topology_mir_umap_visualization.ipynb
+│   ├── topology_tda_pipeline.ipynb
+│   ├── topology_visualization.ipynb
+│   └── topology_popularity_analysis.ipynb
 │
-├── src/               # Python модули
-│   ├── __init__.py
-│   ├── topology_methods.py    # CQT-хрома эмбеддинги тактов
-│   ├── mir_bar_features.py    # MIR-баровые признаки
-│   └── chaos_methods.py       # Методы анализа хаоса
+├── plots/                        # Generated figures (PNG)
+│   ├── gtzan_confusion_matrix.png
+│   ├── gtzan_feature_importance.png
+│   ├── gtzan_block_importance.png
+│   ├── gtzan_ablation_study.png
+│   ├── gtzan_feature_distributions.png
+│   ├── gtzan_correlation_matrix.png
+│   ├── umap_visualization.png
+│   ├── umap_feature_coloring.png
+│   ├── umap_block_projection.png
+│   └── genre_distance_matrix.png
 │
-├── scripts/           # Утилитарные скрипты (опционально)
-│   └── spotify_scraper.py    # Скрипт для скачивания музыки с Spotify
+├── latex/                        # LaTeX paper
+│   ├── main.tex
+│   ├── refs.bib
+│   └── graphics/
 │
-├── data/              # Данные (аудиофайлы)
-│   ├── top50musicSpotify/
-│   └── 1000musicSpotify/
-│
-├── venv/              # Виртуальное окружение (не в git)
-├── setup.py           # Установка пакета
-├── requirements_scraper.txt  # Зависимости для скрейпера
-└── .env               # Переменные окружения (не в git)
+├── data/                         # Audio data (not in git)
+├── scripts/                      # Utility scripts
+├── setup.py
+└── requirements_scraper.txt
 ```
 
-## Установка
+## Installation
 
-1. Создайте виртуальное окружение:
 ```bash
 python3 -m venv venv
-source venv/bin/activate  # Linux/Mac
-# или
-venv\Scripts\activate  # Windows
+source venv/bin/activate
+pip install -e .
 ```
 
-2. Установите зависимости:
+Core dependencies:
 ```bash
-pip install -r requirements_scraper.txt  # Для скрейпера
-pip install -e .  # Установка проекта в режиме разработки
+pip install numpy scipy librosa soundfile matplotlib scikit-learn umap-learn hdbscan tqdm
 ```
 
-Или установите основные зависимости вручную:
-```bash
-pip install numpy scipy librosa soundfile matplotlib scikit-learn umap-learn hdbscan ripser persim plotly pandas tqdm antropy ordpy
-```
+## Usage
 
-## Использование
-
-### Быстрый старт
-
-1. **Активируйте виртуальное окружение:**
-```bash
-source venv/bin/activate  # Linux/Mac
-# или
-venv\Scripts\activate  # Windows
-```
-
-2. **Установите зависимости (если еще не установлены):**
-```bash
-pip install -e .  # Установка проекта в режиме разработки
-```
-
-3. **Запустите Jupyter:**
-```bash
-jupyter notebook notebooks/
-```
-
-### Ноутбуки
-
-Все ноутбуки находятся в папке `notebooks/`. Они автоматически настраивают пути для импорта модулей из `src/`.
-
-**Важно:** Запускайте Jupyter из корня проекта, чтобы пути к данным работали корректно.
-
-```bash
-# Из корня проекта (рекомендуется)
-jupyter notebook notebooks/
-```
-
-Подробные инструкции см. в:
-- [USAGE.md](USAGE.md) - общие инструкции
-- [DIRECT_USAGE.md](DIRECT_USAGE.md) - использование ноутбуков напрямую (без терминала)
-
-### Импорт модулей
-
-В ноутбуках и скриптах модули импортируются так:
+### Computing embeddings
 
 ```python
-from src.topology_methods import cqt_chroma_bar_embeddings
-from src.mir_bar_features import mir_bar_embeddings
-from src.chaos_methods import ...
+from src.interpretable_embeddings import compute_bar_embeddings
+from src.embedding_pipeline import compute_track_embedding
+
+# Bar-level: matrix (N_bars × 52)
+bar_matrix = compute_bar_embeddings("path/to/audio.wav")
+
+# Track-level: vector (52,) — mean across bars
+track_vector = compute_track_embedding("path/to/audio.wav", strategy="mean")
 ```
 
-### Пути к данным
+### Running validation notebooks
 
-Пути к данным настроены относительно корня проекта. В ноутбуках используется `project_root` для надежной работы из любой директории:
-
-```python
-base_genre_dir = str(project_root / "data/top50musicSpotify")
+```bash
+jupyter notebook notebooks_tda/
 ```
 
-## Модули
+Key notebooks:
+- **`vector_validation_gtzan.ipynb`** — genre classification, feature/block importance, ablation study
+- **`umap_analysis.ipynb`** — UMAP projection, HDBSCAN clustering, feature-colored UMAP, block projections, inter-genre distances
 
-### `topology_methods.py`
-- `cqt_chroma_bar_embeddings()` - CQT-хрома эмбеддинги тактов
+## References
 
-### `mir_bar_features.py`
-- `mir_bar_embeddings()` - MIR-баровые признаки (MFCC, спектральные признаки, хрома)
-
-### `chaos_methods.py`
-- Методы анализа хаоса для аудио
+- Amiot, E. (2016). *Music Through Fourier Space*. Springer.
+- Fujishima, T. (1999). Realtime chord recognition. ICMC.
+- Harte, C. & Sandler, M. (2006). Detecting harmonic change in musical audio. ACM MM.
+- Krumhansl, C. (1990). *Cognitive Foundations of Musical Pitch*. Oxford.
+- Plomp, R. & Levelt, W. (1965). Tonal consonance and critical bandwidth. JASA.
+- Tzanetakis, G. & Cook, P. (2002). Musical genre classification of audio signals. IEEE TSAP.
