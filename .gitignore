@@ -39,7 +39,7 @@ data/
 *.pyd
 .Python
 
-# Plots
-plots/
+# # Plots
+# plots/
 
 latex/
