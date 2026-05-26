@@ -125,7 +125,7 @@ def main():
     
     print("\n--- VERDICT ---")
     n_tracks = len(files)
-    print(f"Выборка: {n_tracks} треков")
+    print(f"Sample: {n_tracks} tracks")
     
     # If concentration ratio is extremely low (std << mean, e.g. < 0.1) and persistence is high
     # it might be a high-dimensional artifact.
@@ -135,7 +135,7 @@ def main():
         if row["takens_concentration"] < 0.15 and row["max_persistence"] > 0.5:
             artifact = True
             
-    print(f"\nВНИМАНИЕ: вердикт на подвыборке n={n_tracks}, пороги эвристические; ориентируйся на числа, а не на binary-вердикт.")
+    print(f"\nWARNING: subset verdict n={n_tracks}; thresholds are heuristic. Use the numbers, not only the binary verdict.")
     if artifact:
         print("VERDICT: strongly configuration-dependent / possible high-dimensional artifact")
     else:

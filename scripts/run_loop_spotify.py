@@ -1,20 +1,15 @@
 """
 run_loop_spotify.py
 -------------------
-Тест «петля = музыкальный повтор» на ПОЛНЫХ Spotify-треках (центральные 90 сек).
-
-Условия улучшены vs GTZAN:
-  * полные треки (не 30-сек клипы) — дальние повторы вмещаются;
-  * жанры с явной повторяющейся структурой (pop, electronic, hip-hop, reggae);
-  * центральные 90 сек — куплет + припев, без деградации на краях;
-  * агрегат по 50+ трекам.
+Test whether topological loops align with musical repeats on 90-second
+center excerpts from full Spotify tracks.
 
     .venv/bin/python scripts/run_loop_spotify.py
 """
 import os
 import sys
 
-# Offline mode — идентично embed_spaces.py
+# Offline mode, matching embed_spaces.py.
 os.environ["HF_HOME"] = "/Users/mverzhbitskiy/.cache/huggingface"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -41,34 +36,26 @@ import pointcloud
 import persistence
 
 
-# ======================================================================
 # Config
-# ======================================================================
 
-CLIP_SEC = 90            # центральные 90 секунд
+CLIP_SEC = 90
 TARGET_GENRES = ["pop", "electronic", "hip-hop", "reggae"]
 SPOTIFY_DIR = "data/top50musicSpotify"
-CACHE_DIR = "cache/muq_spotify90"   # отдельный кэш для 90-сек фрагментов
-DISTANT_THRESH = 5.0     # секунды
+CACHE_DIR = "cache/muq_spotify90"
+DISTANT_THRESH = 5.0
 CLOSE_THRESH = 2.0
-SSM_REPEAT_THRESH = 0.85  # порог для "трек имеет повторы"
-SSM_REPEAT_MIN_FRAC = 0.02  # доля ярких off-diagonal ячеек
+SSM_REPEAT_THRESH = 0.85
+SSM_REPEAT_MIN_FRAC = 0.02
 
 
 def load_cfg():
     return yaml.safe_load(open("config.yaml"))
 
 
-# ======================================================================
-# MuQ extraction (центральные 90 секунд, отдельный кэш)
-# ======================================================================
+# MuQ extraction for center clips
 
 def extract_muq_center(filepath, cfg, clip_sec=CLIP_SEC):
-    """Извлечь MuQ-10 для центральных clip_sec секунд трека.
-
-    Кэшируется в CACHE_DIR (отдельно от основного cache/muq/).
-    НЕ трогает кэш GTZAN-эмбеддингов.
-    """
+    """Extract MuQ layer 10 for the center clip."""
     os.makedirs(CACHE_DIR, exist_ok=True)
     base = os.path.splitext(os.path.basename(filepath))[0]
     cache_path = os.path.join(CACHE_DIR, f"{base}.npy")
@@ -79,15 +66,12 @@ def extract_muq_center(filepath, cfg, clip_sec=CLIP_SEC):
     wav, _ = librosa.load(filepath, sr=sr, mono=True)
     total_sec = len(wav) / sr
 
-    # Центральный фрагмент
     if total_sec > clip_sec:
         start_sec = (total_sec - clip_sec) / 2
         start_sample = int(start_sec * sr)
         end_sample = start_sample + int(clip_sec * sr)
         wav = wav[start_sample:end_sample]
-    # Если трек короче — берём весь
 
-    # MuQ extraction (модель держится в _MUQ_MODEL между вызовами)
     import torch
     from muq import MuQ
 
@@ -128,13 +112,11 @@ def _device():
     return "cpu"
 
 
-# ======================================================================
-# Helpers (shared with run_loop_interpretation.py logic)
-# ======================================================================
+# Helpers
 
 def cocycle_vertices_to_seconds(cocycle, sub_indices, takens_starts,
                                  window, target_fps):
-    """Cocycle вершины → центры окон (секунды)."""
+    """Map cocycle vertices to Takens window centers in seconds."""
     vertex_ids = np.unique(cocycle[:, :2].astype(int).ravel())
     seconds = []
     for v in vertex_ids:
@@ -146,7 +128,7 @@ def cocycle_vertices_to_seconds(cocycle, sub_indices, takens_starts,
 
 
 def extract_chroma_at_windows(wav, sr, seconds, window_sec, hop_length=512):
-    """Извлечь усреднённый chroma вектор для каждого момента."""
+    """Extract an averaged chroma vector around each timestamp."""
     chroma_full = librosa.feature.chroma_cens(y=wav, sr=sr, hop_length=hop_length)
     chroma_fps = sr / hop_length
     n_chroma = chroma_full.shape[1]
@@ -164,7 +146,7 @@ def extract_chroma_at_windows(wav, sr, seconds, window_sec, hop_length=512):
 
 def has_distant_repeats(wav, sr, hop_length=512, thresh=SSM_REPEAT_THRESH,
                          min_frac=SSM_REPEAT_MIN_FRAC, min_dist_sec=5.0):
-    """Проверить, есть ли у трека дальние повторы (яркие off-diagonal в SSM)."""
+    """Check for distant repeats as bright off-diagonal cells in the SSM."""
     chroma = librosa.feature.chroma_cens(y=wav, sr=sr, hop_length=hop_length)
     chroma_fps = sr / hop_length
     min_dist_frames = int(min_dist_sec * chroma_fps)
@@ -172,7 +154,6 @@ def has_distant_repeats(wav, sr, hop_length=512, thresh=SSM_REPEAT_THRESH,
     ssm = cosine_similarity(chroma.T)
     n = ssm.shape[0]
 
-    # Считаем долю ярких ячеек далеко от диагонали
     total_far = 0
     bright_far = 0
     for i in range(n):
@@ -189,7 +170,7 @@ def has_distant_repeats(wav, sr, hop_length=512, thresh=SSM_REPEAT_THRESH,
 
 def has_distant_repeats_fast(wav, sr, hop_length=512, thresh=SSM_REPEAT_THRESH,
                               min_frac=SSM_REPEAT_MIN_FRAC, min_dist_sec=5.0):
-    """Быстрая версия: vectorized SSM check."""
+    """Vectorized SSM repeat check."""
     chroma = librosa.feature.chroma_cens(y=wav, sr=sr, hop_length=hop_length)
     chroma_fps = sr / hop_length
     min_dist_frames = int(min_dist_sec * chroma_fps)
@@ -197,7 +178,6 @@ def has_distant_repeats_fast(wav, sr, hop_length=512, thresh=SSM_REPEAT_THRESH,
     ssm = cosine_similarity(chroma.T)
     n = ssm.shape[0]
 
-    # Маска: далеко от диагонали
     rows, cols = np.triu_indices(n, k=min_dist_frames)
     far_vals = ssm[rows, cols]
     total_far = len(far_vals)
@@ -209,12 +189,10 @@ def has_distant_repeats_fast(wav, sr, hop_length=512, thresh=SSM_REPEAT_THRESH,
     return frac >= min_frac, float(frac)
 
 
-# ======================================================================
 # Per-track analysis
-# ======================================================================
 
 def analyze_track(filepath, x_pca, wav, sr, cfg, pc_cfg):
-    """Полный анализ одного трека: cocycle → seconds → similarity."""
+    """Run cocycle-to-time mapping and chroma similarity analysis."""
     window = pc_cfg["window"]
     target_fps = cfg["common"]["target_fps"]
     hop_length = cfg["spaces"]["mir"]["hop_length"]
@@ -327,13 +305,11 @@ def analyze_track(filepath, x_pca, wav, sr, cfg, pc_cfg):
     return result
 
 
-# ======================================================================
 # Visualization
-# ======================================================================
 
 def plot_track_panel(filepath, wav, sr, seconds, cocycle, sub_indices,
                      takens_starts, window, target_fps, result, out_path):
-    """Timeline + chromagram + SSM для одного трека."""
+    """Plot timeline, chromagram, and SSM for one track."""
     hop_length = 512
     clip_dur = len(wav) / sr
     chroma = librosa.feature.chroma_cens(y=wav, sr=sr, hop_length=hop_length)
@@ -417,9 +393,7 @@ def plot_track_panel(filepath, wav, sr, seconds, cocycle, sub_indices,
     plt.close(fig)
 
 
-# ======================================================================
 # Main
-# ======================================================================
 
 def main():
     cfg = load_cfg()
@@ -546,7 +520,6 @@ def main():
         frac_sig = 0
         print("No informative tracks!")
 
-    # Средний эффект среди информативных
     info_df = df[df["has_repeats"] & (df["n_distant_pairs"] >= 3)]
     if len(info_df) > 0:
         mean_loop = info_df["distant_loop_sim_mean"].mean()
@@ -562,8 +535,7 @@ def main():
     print(f"Mean loop span: {mean_span:.1f}s")
 
     # Qualitative comparison with GTZAN
-    # NB: числовое сравнение sim-значений между GTZAN и Spotify некорректно
-    # (разные PCA-пространства). Сравниваем только качественный вывод.
+    # Similarity values are not directly comparable across PCA spaces.
     print("\n--- Qualitative comparison with GTZAN ---")
     print("GTZAN: hypothesis NOT confirmed (p=0.23) on 30s classical clip")
     print("  Conditions: short clip (no room for distant repeats), classical genre")

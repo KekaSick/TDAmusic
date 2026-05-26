@@ -47,11 +47,9 @@ OUT.mkdir(parents=True, exist_ok=True)
 CHANNELS = ["muq", "mert", "encodec", "mir"]
 CHANNEL_LABELS = {"muq": "MuQ", "mert": "MERT", "encodec": "EnCodec", "mir": "MIR"}
 
-# ----------------------------------------------------------------------
 # Unified monochromatic palette
-#   blues family (real / signal) + warm rust accent (highlight)
+# Blues family for signal, warm rust accent for highlights.
 #   + grays (surrogate ladder, light → dark = weaker → stricter null)
-# ----------------------------------------------------------------------
 C_NAVY      = "#1F3A5F"   # primary — real signal
 C_STEEL     = "#4F7CAC"   # secondary blue
 C_PALE      = "#A4C2E5"   # tertiary blue
@@ -95,9 +93,7 @@ def save(fig, name):
     print(f"  wrote {path.relative_to(ROOT)}")
 
 
-# ======================================================================
-# fig01: BEAUTIFIED pipeline with thumbnail visualisations
-# ======================================================================
+# fig01: Pipeline
 def fig01_pipeline():
     rng = np.random.default_rng(7)
 
@@ -248,42 +244,6 @@ def fig01_pipeline():
              "same Takens + Ripser pipeline, compared against real diagrams",
              ha="center", va="center", fontsize=8.2, color="#555")
 
-    # chip_y = surr_bottom + 0.026
-    # chip_h = 0.036
-    # chip_gap = 0.010
-    # chip_w = ((surr_right - surr_left) - 0.050 - 2 * chip_gap) / 3
-    # chip_x0 = surr_left + 0.025
-    # chips = [
-    #     ("Shuffle", "order null", C_GRAY_L),
-    #     ("Phase", "spectrum null", C_GRAY_M),
-    #     ("IAAFT", "spectrum + marginals", C_GRAY_D),
-    # ]
-    # for i, (name, note, color) in enumerate(chips):
-    #     cx = chip_x0 + i * (chip_w + chip_gap)
-    #     chip = FancyBboxPatch(
-    #         (cx, chip_y), chip_w, chip_h,
-    #         boxstyle="round,pad=0.006",
-    #         facecolor="white", edgecolor=color, lw=0.9,
-    #         transform=fig.transFigure)
-    #     fig.add_artist(chip)
-    #     fig.text(cx + chip_w / 2, chip_y + chip_h / 2,
-    #              f"{name}: {note}", ha="center", va="center",
-    #              fontsize=7.4, color="#333")
-
-    # x_pre = xs[2] + panel_w / 2
-    # x_takens = xs[3] + panel_w / 2
-    # fig.add_artist(FancyArrowPatch(
-    #     (x_pre, y_panel - 0.012), (x_pre, surr_bottom + surr_h),
-    #     arrowstyle="-|>", mutation_scale=11, color=C_ACCENT,
-    #     lw=1.1, linestyle="--", alpha=0.85,
-    #     transform=fig.transFigure))
-    # fig.add_artist(FancyArrowPatch(
-    #     (x_takens, surr_bottom + surr_h),
-    #     (x_takens, y_panel - 0.012),
-    #     arrowstyle="-|>", mutation_scale=11, color=C_ACCENT,
-    #     lw=1.1, linestyle="--", alpha=0.85,
-    #     transform=fig.transFigure))
-
     # ---- Downstream branch: analyses start after persistence diagrams have been computed ----
     down_left = xs[4] - 0.020
     down_right = xs[5] + panel_w + 0.020
@@ -303,44 +263,12 @@ def fig01_pipeline():
              "hypothesis tests, distances, classifiers, and representative cycles",
              ha="center", va="center", fontsize=8.2, color="#555")
 
-    # method_y = down_bottom + 0.025
-    # method_h = 0.035
-    # method_gap = 0.008
-    # method_w = ((down_right - down_left) - 0.048 - 3 * method_gap) / 4
-    # method_x0 = down_left + 0.024
-    # methods = ["Wilcoxon + FDR", r"$W_2$ / Mantel", "LogReg / HGB", "cycle geometry"]
-    # for i, label in enumerate(methods):
-    #     mx = method_x0 + i * (method_w + method_gap)
-    #     method = FancyBboxPatch(
-    #         (mx, method_y), method_w, method_h,
-    #         boxstyle="round,pad=0.005",
-    #         facecolor="white", edgecolor=C_NAVY, lw=0.75,
-    #         transform=fig.transFigure)
-    #     fig.add_artist(method)
-    #     fig.text(mx + method_w / 2, method_y + method_h / 2,
-    #              label, ha="center", va="center", fontsize=7.2, color="#333")
-
-    # x_pd = xs[4] + panel_w / 2
-    # x_out = xs[5] + panel_w / 2
-    # fig.add_artist(FancyArrowPatch(
-    #     (x_pd, y_panel - 0.012), (x_pd, down_bottom + down_h),
-    #     arrowstyle="-|>", mutation_scale=11, color=C_NAVY,
-    #     lw=1.1, linestyle="--", alpha=0.85,
-    #     transform=fig.transFigure))
-    # fig.add_artist(FancyArrowPatch(
-    #     (x_out, y_panel - 0.012), (x_out, down_bottom + down_h),
-    #     arrowstyle="-|>", mutation_scale=11, color=C_NAVY,
-    #     lw=1.1, linestyle="--", alpha=0.85,
-    #     transform=fig.transFigure))
-
     fig.suptitle("Methodology pipeline — from raw audio to persistent homology and statistical tests",
                  fontsize=12.5, weight="bold", y=0.99)
     save(fig, "fig01_pipeline.png")
 
 
-# ======================================================================
-# fig02: H1 max-persistence by channel × condition
-# ======================================================================
+# fig02: H1 max-persistence
 def fig02_h1_max_persistence():
     df = pd.read_csv(MAIN / "controls_summary.csv").set_index("space")
     fig, ax = plt.subplots(figsize=(8.5, 4.6))
@@ -370,9 +298,7 @@ def fig02_h1_max_persistence():
     save(fig, "fig02_h1_max_persistence.png")
 
 
-# ======================================================================
-# fig03: within vs between Wasserstein + gap with CI
-# ======================================================================
+# fig03: Within vs between Wasserstein
 def fig03_h2_within_between():
     df = pd.read_csv(MAIN / "controls_summary.csv").set_index("space")
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.4),
@@ -407,9 +333,7 @@ def fig03_h2_within_between():
     save(fig, "fig03_h2_within_between.png")
 
 
-# ======================================================================
-# fig04: H3 — rank-biserial effect sizes
-# ======================================================================
+# fig04: Rank-biserial effect sizes
 def fig04_h3_phase_effect():
     df = pd.read_csv(MAIN / "controls_summary.csv").set_index("space")
     fig, ax = plt.subplots(figsize=(8.5, 4.3))
@@ -444,9 +368,7 @@ def fig04_h3_phase_effect():
     save(fig, "fig04_h3_phase_effect.png")
 
 
-# ======================================================================
 # fig05: Mantel cross-representation
-# ======================================================================
 def fig05_h4_mantel():
     df = pd.read_csv(MAIN / "mantel_matrix.csv")
     # Build symmetric 3×3 matrix
@@ -498,9 +420,7 @@ def fig05_h4_mantel():
     save(fig, "fig05_h4_mantel.png")
 
 
-# ======================================================================
-# fig06: H5 classification
-# ======================================================================
+# fig06: Classification
 def fig06_h5_classification():
     df = pd.read_csv(MAIN / "classification_full.csv")
     df["Space"] = df["Space"].str.lower()
@@ -562,9 +482,7 @@ def fig06_h5_classification():
     save(fig, "fig06_h5_classification.png")
 
 
-# ======================================================================
 # fig07: H-loop methodology progression
-# ======================================================================
 def fig07_hloop_progression():
     methods = ["Cocycle +\nMann–Whitney\n(uncorrected)",
                "Cocycle +\npermutation test",
@@ -596,9 +514,7 @@ def fig07_hloop_progression():
     save(fig, "fig07_hloop_progression.png")
 
 
-# ======================================================================
 # fig08: Popularity correlations
-# ======================================================================
 def fig08_popularity_correlations():
     df = pd.read_csv(MAIN / "popularity_topology_correlations.csv")
     metrics_keep = ["max_persistence", "n_loop_vertices", "loop_span_sec", "chroma_excess"]
@@ -651,9 +567,7 @@ def fig08_popularity_correlations():
     save(fig, "fig08_popularity_correlations.png")
 
 
-# ======================================================================
-# fig09: Cycle vs cocycle (population stats from cycle_vs_cocycle_full.csv)
-# ======================================================================
+# fig09: Cycle vs cocycle
 def fig09_cycle_vs_cocycle():
     df = pd.read_csv(MAIN / "cycle_vs_cocycle_full.csv")
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.5, 4.6),
@@ -695,9 +609,7 @@ def fig09_cycle_vs_cocycle():
     save(fig, "fig09_cycle_vs_cocycle.png")
 
 
-# ======================================================================
 # fig10: Robustness ablation panel
-# ======================================================================
 def fig10_robustness_panel():
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
     markers = {"muq": "o", "mert": "s", "encodec": "^", "mir": "D"}
@@ -805,9 +717,7 @@ def fig10_robustness_panel():
     save(fig, "fig10_robustness_panel.png")
 
 
-# ======================================================================
 # fig11: Persistence-summary metric ablation
-# ======================================================================
 def fig11_persistence_metrics():
     """Question: does the conclusion 'real > shuffle' depend on which scalar
     summary of the persistence diagram we pick? Effect = +1 means real always
@@ -864,9 +774,7 @@ def fig11_persistence_metrics():
     save(fig, "fig11_persistence_metrics.png")
 
 
-# ======================================================================
-# fig12: Example persistence diagrams — real vs surrogate ladder
-# ======================================================================
+# fig12: Persistence diagrams
 def fig12_persistence_diagrams():
     """One demo track, compute four persistence diagrams (real / shuffle / phase / IAAFT)
     and plot side-by-side. Demonstrates visually what the H1 statistics summarise."""
@@ -985,9 +893,7 @@ def fig12_persistence_diagrams():
     save(fig, "fig12_persistence_diagrams.png")
 
 
-# ======================================================================
-# fig13: Etalon 60-point circle — Ripser cocycle vs Dionysus cocycle vs cycle
-# ======================================================================
+# fig13: Etalon cycle vs cocycle
 def fig13_etalon_cycle_vs_cocycle():
     import ripser as ripser_lib
     import dionysus as dio
@@ -1070,9 +976,7 @@ def fig13_etalon_cycle_vs_cocycle():
     save(fig, "fig13_etalon_cycle_vs_cocycle.png")
 
 
-# ======================================================================
-# fig14: Chromagram + self-similarity (intuition for H-loop)
-# ======================================================================
+# fig14: Chromagram and self-similarity
 def fig14_chromagram_example():
     import librosa
     cfg = yaml.safe_load(open(ROOT / "config.yaml"))
@@ -1216,7 +1120,7 @@ def fig14_chromagram_example():
     save(fig, "fig14_chromagram_example.png")
 
 
-# ======================================================================
+# Main
 def main():
     print(f"Output directory: {OUT.relative_to(ROOT)}")
     fig01_pipeline()

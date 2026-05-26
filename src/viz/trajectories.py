@@ -1,15 +1,9 @@
 """
 viz/trajectories.py
 -------------------
-Визуализация. ЖЕЛЕЗНОЕ ПРАВИЛО: гомологии считаются на PCA, UMAP — ТОЛЬКО
-для картинки и НИКОГДА не подаётся в Ripser.
+Trajectory and diagram visualization helpers.
 
-  * trajectory_2d / _3d  : траектория, цвет = время.
-  * cycle_on_trajectory  : подсветить representative cycle самого
-                           персистентного H1-класса поверх траектории +
-                           показать соответствующую точку на диаграмме.
-                           (связка «петля в музыке <-> точка на диаграмме»)
-  * grid_spaces          : одна песня в MERT/MuQ/Encodec/MIR бок о бок.
+UMAP is for plotting only and is never passed to Ripser.
 """
 from __future__ import annotations
 import numpy as np
@@ -17,7 +11,7 @@ import matplotlib.pyplot as plt
 
 
 def trajectory_2d(cloud_pca, ax=None, title="", time_indices=None):
-    """cloud_pca: (N, >=2). Цвет = индекс времени."""
+    """Plot a 2D trajectory colored by time."""
     ax = ax or plt.gca()
     if time_indices is None:
         t = np.arange(len(cloud_pca))
@@ -39,11 +33,11 @@ def trajectory_3d(cloud, title="", use_umap=False, time_indices=None):
     if use_umap:
         import umap
         proj = umap.UMAP(n_components=3, random_state=42, n_jobs=1).fit_transform(cloud)
-        full_title = f"{title}<br><sup>(проекция UMAP, искажающая, для наглядности; гомологии на ней НЕ считались)</sup>"
+        full_title = f"{title}<br><sup>UMAP projection for visualization only</sup>"
     else:
         from sklearn.decomposition import PCA
         proj = PCA(n_components=3).fit_transform(cloud) if cloud.shape[1] > 3 else cloud
-        full_title = f"{title}<br><sup>(PCA, метрически корректная приближённо)</sup>"
+        full_title = f"{title}<br><sup>PCA projection</sup>"
 
     if time_indices is None:
         t = np.arange(len(proj))
@@ -60,12 +54,7 @@ def trajectory_3d(cloud, title="", use_umap=False, time_indices=None):
 
 
 def cycle_on_trajectory(cloud_pca, ripser_result, ax_traj=None, ax_dgm=None):
-    """
-    Подсветить рёбра representative cocycle самого долгоживущего H1-класса.
-    cloud_pca: 2D-проекция ИМЕННО ТОГО прореженного облака, что подавалось в Ripser.
-               Это гарантирует совпадение индексов рёбер и точек.
-    ripser_result: требует compute_diagrams(..., do_cocycles=True).
-    """
+    """Overlay the most persistent H1 cocycle on the same cloud used by Ripser."""
     if ax_traj is None or ax_dgm is None:
         fig, (ax_traj, ax_dgm) = plt.subplots(1, 2, figsize=(10, 5))
         
@@ -82,14 +71,12 @@ def cycle_on_trajectory(cloud_pca, ripser_result, ax_traj=None, ax_dgm=None):
         return ax_traj, ax_dgm
         
     life = dgm1[:, 1] - dgm1[:, 0]
-    k = int(np.argmax(life))                 # самый персистентный класс
+    k = int(np.argmax(life))
     
-    # Отмечаем точку красной звездой на диаграмме
     b, d = dgm1[k]
     ax_dgm.plot(b, d, 'r*', markersize=15, markeredgecolor='black')
     
-    # Рисуем рёбра поверх траектории
-    cocycle = ripser_result["cocycles"][1][k]   # рёбра [i, j, val]
+    cocycle = ripser_result["cocycles"][1][k]
     for i, j, val in cocycle:
         ax_traj.plot([cloud_pca[i, 0], cloud_pca[j, 0]],
                      [cloud_pca[i, 1], cloud_pca[j, 1]], "r-", lw=1.5, zorder=5)
@@ -98,7 +85,7 @@ def cycle_on_trajectory(cloud_pca, ripser_result, ax_traj=None, ax_dgm=None):
 
 
 def grid_spaces(clouds_by_space: dict, title=""):
-    """{'mert': cloud, 'muq': cloud, ...} -> сетка 2D-траекторий."""
+    """Plot one 2D trajectory per representation space."""
     n = len(clouds_by_space)
     fig, axes = plt.subplots(1, n, figsize=(4 * n, 4))
     if n == 1:
@@ -111,11 +98,7 @@ def grid_spaces(clouds_by_space: dict, title=""):
 
 
 def plot_real_shuffle_random_panel(track_results):
-    """
-    Панель H1-диаграмм: строки = треки, столбцы = Real / Shuffle / Random.
-    ОДИНАКОВЫЕ ПРЕДЕЛЫ ОСЕЙ для всей строки, чтобы схлопнутость случайных была видна.
-    track_results: list of dicts, each with 'name', 'real', 'shuffle', 'random' diagrams.
-    """
+    """Panel of real/shuffle/random diagrams with shared row limits."""
     from persim import plot_diagrams
     n_tracks = len(track_results)
     fig, axes = plt.subplots(n_tracks, 3, figsize=(12, 4 * n_tracks))
@@ -125,7 +108,6 @@ def plot_real_shuffle_random_panel(track_results):
     for i, res in enumerate(track_results):
         d_real, d_shuf, d_rand = res["real"], res["shuffle"], res["random"]
         
-        # Найти общий масштаб для H1
         all_pts = []
         if len(d_real[1]) > 0: all_pts.append(d_real[1])
         if len(d_shuf[1]) > 0: all_pts.append(d_shuf[1])
@@ -146,7 +128,6 @@ def plot_real_shuffle_random_panel(track_results):
                 ax.set_title(ttl, fontweight="bold")
             if j == 0:
                 ax.set_ylabel(f"{res['name']}\nDeath", fontweight="bold")
-            # Фиксируем оси!
             ax.set_xlim([0, max_val])
             ax.set_ylim([0, max_val])
             
@@ -155,10 +136,7 @@ def plot_real_shuffle_random_panel(track_results):
 
 
 def plot_genre_panels(genre_diagrams, title=""):
-    """
-    По одному треку classical/metal/jazz.
-    genre_diagrams: dict genre -> diagrams.
-    """
+    """Plot one persistence diagram per genre."""
     from persim import plot_diagrams
     n = len(genre_diagrams)
     fig, axes = plt.subplots(1, n, figsize=(4 * n, 4))

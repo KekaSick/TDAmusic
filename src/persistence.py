@@ -1,20 +1,10 @@
 """
 persistence.py
 --------------
-Vietoris-Rips через ripser -> диаграммы H0/H1 -> векторизация для ML.
+Vietoris-Rips diagrams and fixed-range diagram vectorization.
 
-H1 (петли) музыкально наиболее значимо. H0 (компоненты) дёшево.
-Отсечка persistence_threshold убирает коротко-живущий шум — он раздут
-из-за контекстуализации (соседние кадры сильно скоррелированы через
-self-attention, см. обзор), поэтому фильтрация важна.
-
-Векторизация нужна, т.к. диаграмма — множество переменного размера, его
-нельзя подать в классификатор напрямую.
-
-ВАЖНО: DiagramVectorizer.fit() фиксирует birth_range/pers_range на
-TRAIN-диаграммах. transform() переиспользует зафиксированные диапазоны.
-Без этого вектора разных треков несопоставимы (каждый трек нормирован
-на свой диапазон — см. §5 CONTRACTS.md).
+DiagramVectorizer must be fitted once on train diagrams and then reused.
+Otherwise per-track auto-scaling makes vectors incomparable.
 """
 from __future__ import annotations
 import logging
@@ -28,9 +18,8 @@ logger = logging.getLogger(__name__)
 
 def compute_diagrams(cloud: np.ndarray, maxdim: int, thresh: float = 0.0,
                      do_cocycles: bool = False):
-    """Возвращает dict: {'dgms': [H0, H1, ...], 'cocycles': ...}."""
-    # Takens embedding: (n_points, window*pca_dim) → D > N — ожидаемо,
-    # ripser предупреждает зря. Подавляем.
+    """Return ripser output with optional persistence thresholding."""
+    # Takens clouds commonly have D > N; suppress the expected ripser warning.
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore",
                                 message=".*more columns than rows.*",
@@ -72,32 +61,21 @@ def _to_bp_finite(dgm):
 
 
 class DiagramVectorizer:
-    """Обучается на train-диаграммах, фиксирует birth_range/pers_range.
-    Применяется ко всем — по той же логике, что PCA.
-
-    Без фиксации диапазонов вектора разных треков несопоставимы:
-    PersistenceImager с авто-подгонкой нормирует каждый трек на свой
-    диапазон, и разница между треками теряется.
-    """
+    """Fixed-coordinate vectorizer for persistence diagrams."""
 
     def __init__(self):
         self._kind = None
-        self._pimgr = None       # для "image"
-        self._grid = None        # для "betti"
+        self._pimgr = None
+        self._grid = None
         self._vector_dim = None
         self._birth_range = None
         self._pers_range = None
 
     def fit(self, dgms_train: list[np.ndarray], cfg: dict):
-        """Вычисляет глобальные диапазоны по train-диаграммам.
-
-        Для "image": создаёт PersistenceImager ОДИН раз с фиксированными
-        birth_range/pers_range. Для "betti": фиксирует grid.
-        """
+        """Estimate global diagram ranges from train diagrams."""
         self._kind = cfg["vectorization"]
         pixels = cfg["image_pixels"]
 
-        # Собрать все конечные (birth, persistence) из train
         bp_all = []
         for d in dgms_train:
             bp = _to_bp_finite(d)
@@ -116,7 +94,6 @@ class DiagramVectorizer:
             b_min, b_max = 0.0, 1.0
             p_min, p_max = 0.0, 1.0
 
-        # Padding + защита от вырожденных диапазонов
         b_pad = max((b_max - b_min) * 0.05, 1e-3)
         p_pad = max((p_max - p_min) * 0.05, 1e-3)
         self._birth_range = (b_min - b_pad, b_max + b_pad)
@@ -141,10 +118,8 @@ class DiagramVectorizer:
     def _fit_image(self, pixels, cfg):
         from persim import PersistenceImager
 
-        # pixel_size для ~pixels пикселей в каждом измерении
         b_width = self._birth_range[1] - self._birth_range[0]
         p_width = self._pers_range[1] - self._pers_range[0]
-        # Единый pixel_size — квадратные пиксели
         pixel_size = max(b_width, p_width) / pixels
 
         self._pimgr = PersistenceImager(
@@ -152,10 +127,8 @@ class DiagramVectorizer:
             pers_range=self._pers_range,
             pixel_size=pixel_size,
         )
-        # Без весовой функции (как в оригинале)
         self._pimgr.weight_params = {}
 
-        # Определить реальный размер выхода
         test_bp = np.array([[
             (self._birth_range[0] + self._birth_range[1]) / 2,
             (self._pers_range[0] + self._pers_range[1]) / 2
@@ -164,15 +137,12 @@ class DiagramVectorizer:
         self._vector_dim = test_img.flatten().shape[0]
 
     def _fit_image_fix(self, pixels, cfg):
-        """Fixed persistence image: раздельное разрешение по осям + штатное взвешивание."""
+        """Persistence image with fixed ranges and default persistence weighting."""
         from persim import PersistenceImager
 
         b_width = self._birth_range[1] - self._birth_range[0]
         p_width = self._pers_range[1] - self._pers_range[0]
 
-        # Раздельное разрешение: обе оси покрываются ~pixels пикселями
-        # PersistenceImager принимает скалярный pixel_size, так что
-        # используем меньший из двух, чтобы обе оси были покрыты полностью
         pixel_size = min(b_width, p_width) / pixels
         if pixel_size < 1e-8:
             pixel_size = max(b_width, p_width) / pixels
@@ -187,9 +157,6 @@ class DiagramVectorizer:
             pers_range=self._pers_range,
             pixel_size=pixel_size,
         )
-        # Штатное взвешивание (по умолчанию — линейная ramping по persistence)
-        # НЕ обнуляем weight_params!
-
         test_bp = np.array([[
             (self._birth_range[0] + self._birth_range[1]) / 2,
             (self._pers_range[0] + self._pers_range[1]) / 2
@@ -199,15 +166,13 @@ class DiagramVectorizer:
         logger.info("image_fix: vector_dim=%d", self._vector_dim)
 
     def _fit_betti(self, pixels):
-        # Фиксированная сетка по (birth, death) =
-        # (birth_min, birth_max + max_persistence)
         lo = self._birth_range[0]
         hi = self._birth_range[1] + self._pers_range[1]
         self._grid = np.linspace(lo, hi, pixels)
         self._vector_dim = pixels
 
     def transform(self, dgm: np.ndarray) -> np.ndarray:
-        """Превращает одну диаграмму в вектор фиксированной длины."""
+        """Transform one diagram into a fixed-length vector."""
         if self._kind in ("image", "image_fix"):
             return self._transform_image(dgm)
         elif self._kind == "betti":
@@ -232,46 +197,26 @@ class DiagramVectorizer:
 
     @property
     def vector_dim(self) -> int:
-        """Размер выходного вектора."""
+        """Output vector length."""
         if self._vector_dim is None:
             raise RuntimeError("DiagramVectorizer.fit() must be called first")
         return self._vector_dim
 
     def save(self, path: str):
-        """Сохранить обученный vectorizer (для viz/classify скриптов)."""
+        """Save the fitted vectorizer."""
         joblib.dump(self, path)
 
     @staticmethod
     def load(path: str) -> DiagramVectorizer:
-        """Загрузить ранее обученный vectorizer."""
+        """Load a fitted vectorizer."""
         return joblib.load(path)
 
 
-# ---- backward-compatible standalone function ----
-# ВНИМАНИЕ: используется ТОЛЬКО в run_pipeline.py (скелет, не критический путь).
-# Все финальные результаты (results/tables/) получены через DiagramVectorizer.
+# Backward-compatible standalone function.
+# Kept for older exploratory scripts. Final results use DiagramVectorizer.
 
 def vectorize(dgm, cfg):
-    """Диаграмма -> фиксированный вектор для классификатора.
-
-    ⚠ ПРЕДУПРЕЖДЕНИЯ:
-    1. Для mode="image" использует _to_birth_persist, которая ОСТАВЛЯЕТ точки
-       с death=inf (характерны для H0). Это НЕКОРРЕКТНО для H0 — inf-persistence
-       раздувает масштаб и искажает PersistenceImage. Для H1 inf-точки обычно
-       отсутствуют, поэтому на практике проблема не проявляется, но поведение
-       отличается от DiagramVectorizer, который всегда фильтрует inf через
-       _to_bp_finite.
-    2. Создаёт PersistenceImager с авто-подгонкой на КАЖДЫЙ вызов — диапазоны
-       birth/persistence не фиксируются, что делает вектора разных треков
-       несопоставимыми (каждый трек нормирован на свой диапазон).
-
-    Для корректного кросс-сравнения треков используйте DiagramVectorizer с
-    fit()/transform() — он фиксирует диапазоны на train-данных и фильтрует inf.
-
-    НИ ОДИН финальный результат статьи не получен через эту функцию.
-    Все результаты в results/tables/ сгенерированы через DiagramVectorizer
-    (см. scripts/run_full_scale.py, scripts/run_classify_betti.py и др.).
-    """
+    """Legacy one-off vectorization without fitted global ranges."""
     kind = cfg["vectorization"]
     if kind == "image":
         from persim import PersistenceImager
@@ -284,7 +229,7 @@ def vectorize(dgm, cfg):
 
 
 def _betti_curve(dgm, n):
-    """Простая Betti-кривая: число классов, живых на сетке порогов."""
+    """Count live classes on a fixed threshold grid."""
     if len(dgm) == 0:
         return np.zeros(n)
     finite = dgm[np.isfinite(dgm[:, 1])]

@@ -38,9 +38,7 @@ from joblib import Parallel, delayed
 import preprocess
 import pointcloud
 
-# ======================================================================
 # Config
-# ======================================================================
 
 # 90s center-crop — matches the physical cache in cache/muq_spotify90/.
 # This is NOT a tunable hyperparameter; it's fixed by the embedding cache.
@@ -72,9 +70,7 @@ def load_tracks_from_csv(csv_path):
     return tracks
 
 
-# ======================================================================
-# Representatives extraction (all 3 from same cloud)
-# ======================================================================
+# Representatives extraction
 
 def extract_all_representatives(cloud, max_radius=None):
     """Compute all 3 representative types from same cloud.
@@ -173,9 +169,7 @@ def extract_all_representatives(cloud, max_radius=None):
     }
 
 
-# ======================================================================
-# Vertex → seconds mapping
-# ======================================================================
+# Vertex to seconds mapping
 
 def vertices_to_seconds(vertex_ids, sub_indices, takens_starts,
                         window, target_fps):
@@ -189,9 +183,7 @@ def vertices_to_seconds(vertex_ids, sub_indices, takens_starts,
     return np.sort(seconds)
 
 
-# ======================================================================
 # Chroma similarity test
-# ======================================================================
 
 def _mean_distant_sim(chroma_vecs, times, distant_thresh):
     """Mean cosine similarity among distant pairs (time gap >= threshold)."""
@@ -280,9 +272,7 @@ def chroma_test(wav, sr, seconds, window_sec, hop_length=512,
     }
 
 
-# ======================================================================
 # Visualization
-# ======================================================================
 
 def plot_3methods(cloud, rep, sub_indices, takens_starts, target_fps,
                   window, track_name, out_path):
@@ -336,9 +326,7 @@ def plot_3methods(cloud, rep, sub_indices, takens_starts, target_fps,
     plt.close(fig)
 
 
-# ======================================================================
 # Main
-# ======================================================================
 
 
 def process_track(idx, n_total, track_base, cfg, sr, target_fps, hop_length, pc_cfg, window, window_sec, reducer, existing):

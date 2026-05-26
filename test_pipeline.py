@@ -1,20 +1,18 @@
 """
 test_pipeline.py
 ----------------
-Интеграционный тест: cached embeddings -> preprocess -> pointcloud -> persistence.
-Проверяет ВСЕ 4 канала (mert, muq, encodec, mir).
+Integration test: cached embeddings -> preprocess -> pointcloud -> persistence.
+Checks all four channels: mert, muq, encodec, mir.
 
-Структурные ассерты (обязаны быть верны независимо от данных):
-  - T_tgt одинаковая у всех каналов после ресемпла
-  - fps после ресемпла совпадает у всех
-  - pca_dim = 32 у DL-каналов, 15 у MIR
+Structural assertions:
+  - T_tgt is aligned across channels after resampling.
+  - resampled fps is aligned across channels.
+  - pca_dim = 32 for DL channels and min(d, 32) for MIR.
   - takens cloud shape = (N, window*d)
-  - вектор имеет фиксированную длину vector_dim
-  - при takens_pca_dim=20 облако (N, 20)
+  - vector has fixed length vector_dim.
+  - takens_pca_dim=20 gives a cloud of shape (N, 20).
 
-Предупреждения (НЕ ассерты):
-  - Пустая H1 → WARNING, не падать. Пустая H1 может быть честным
-    свойством данных; решение принимает человек.
+Warnings are not assertions: empty H1 logs a warning and does not fail.
 
     python test_pipeline.py
 """
@@ -32,10 +30,7 @@ logger = logging.getLogger("test_pipeline")
 
 
 def run_pipeline_test(cfg, takens_pca_dim_override=None):
-    """Прогнать полный тест.
-
-    takens_pca_dim_override: если не None, перезаписать cfg pointcloud.takens_pca_dim.
-    """
+    """Run the full integration test."""
     spaces = list(cfg["spaces"].keys())
     target_fps = cfg["common"]["target_fps"]
     clip_s = cfg["data"]["clip_seconds"]
@@ -48,9 +43,7 @@ def run_pipeline_test(cfg, takens_pca_dim_override=None):
     print(f"# TEST RUN: {label}")
     print(sep)
 
-    # ═══════════════════════════════════════════════════════════════
-    # 1. Загрузка кэшированных эмбеддингов
-    # ═══════════════════════════════════════════════════════════════
+    # Cached embeddings
     raw = {}
     for space in spaces:
         path = os.path.join(cfg["paths"]["cache"], space, "test.npy")
@@ -61,9 +54,7 @@ def run_pipeline_test(cfg, takens_pca_dim_override=None):
         logger.info("loaded %-8s  shape=%-14s dtype=%s",
                      space, str(raw[space].shape), raw[space].dtype)
 
-    # ═══════════════════════════════════════════════════════════════
-    # 2. Preprocess: resample → scaler → normalize → PCA (per channel)
-    # ═══════════════════════════════════════════════════════════════
+    # Preprocess: resample -> scaler -> normalize -> PCA per channel.
     preprocessed = {}
     reducers = {}
 
@@ -93,9 +84,7 @@ def run_pipeline_test(cfg, takens_pca_dim_override=None):
                      reduced.shape[0], reduced.shape[1],
                      reducer.explained)
 
-    # ═══════════════════════════════════════════════════════════════
-    # 3. ASSERT: одинаковая T_tgt и fps у всех каналов
-    # ═══════════════════════════════════════════════════════════════
+    # Check aligned T_tgt and fps across channels.
     print("\n" + "="*60)
     print("CHECK: same T_tgt / fps across channels")
     print("="*60)
@@ -113,9 +102,7 @@ def run_pipeline_test(cfg, takens_pca_dim_override=None):
 
     print("  ✓ all channels have the same T_tgt and fps")
 
-    # ═══════════════════════════════════════════════════════════════
-    # 4. ASSERT: pca_dim = 32 для DL, min(d, 32) для MIR
-    # ═══════════════════════════════════════════════════════════════
+    # Check PCA dimensionality per channel.
     print("\n" + "="*60)
     print("CHECK: pca_dim per channel")
     print("="*60)
@@ -132,9 +119,7 @@ def run_pipeline_test(cfg, takens_pca_dim_override=None):
 
     print("  ✓ pca_dim correct for all channels")
 
-    # ═══════════════════════════════════════════════════════════════
-    # 5. Point clouds (takens) + optional second PCA + diagrams
-    # ═══════════════════════════════════════════════════════════════
+    # Point clouds, optional second PCA, and diagrams.
     print("\n" + "="*60)
     print("TAKENS CLOUDS + PERSISTENCE DIAGRAMS")
     print("="*60)
@@ -142,7 +127,6 @@ def run_pipeline_test(cfg, takens_pca_dim_override=None):
     pc_cfg = dict(cfg["pointcloud"])
     pc_cfg["method"] = "takens"  # force takens
 
-    # Определить takens_pca_dim
     tpca_dim = takens_pca_dim_override if takens_pca_dim_override is not None \
         else pc_cfg.get("takens_pca_dim")
 
@@ -168,7 +152,6 @@ def run_pipeline_test(cfg, takens_pca_dim_override=None):
         all_clouds.append(cloud)
         print(f"\n  {space:8s}  cloud_raw=({cloud.shape[0]}, {cloud.shape[1]})")
 
-    # Опциональный второй PCA после Такенса
     if tpca_dim is not None:
         print(f"\n  Applying Takens PCA → {tpca_dim}D")
         takens_reducers = {}
@@ -211,9 +194,7 @@ def run_pipeline_test(cfg, takens_pca_dim_override=None):
             print(f"           H1 max persistence: {lifetimes.max():.4f}")
             print(f"           H1 mean persistence: {lifetimes.mean():.4f}")
 
-    # ═══════════════════════════════════════════════════════════════
-    # 6. DiagramVectorizer (fit на диаграммах ВСЕХ каналов)
-    # ═══════════════════════════════════════════════════════════════
+    # DiagramVectorizer fitted on diagrams from all channels.
     print("\n" + "="*60)
     print("DIAGRAM VECTORIZER")
     print("="*60)

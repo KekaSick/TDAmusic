@@ -1,29 +1,19 @@
 """
 embed_spaces.py
 ---------------
-Единый интерфейс извлечения покадровых эмбеддингов для ВСЕХ пространств.
-Ключевой принцип: extract(audio, space) -> np.ndarray (T, d).
-Downstream-код после этого space-agnostic.
+Frame-level embedding extraction.
 
-ВАЖНО:
-  * Все DL-модели грузятся ЛЕНИВО (один раз) и кэшируются в _MODELS.
-  * Результат КЭШИРУЕТСЯ на диск (.npy). Извлечение дорого — второй раз
-    его делать нельзя. Скрипт возобновляемый: пропускает готовое.
-  * MuQ = SSL-модель (OpenMuQ/MuQ-large-msd-iter), НЕ MuQ-MuLan (та
-    выдаёт один вектор на клип и для топологии бесполезна).
-  * Никакой агрегации по времени здесь не делается — это убило бы топологию.
+Each extractor returns an array with shape (T, d). The result is cached to disk
+because model inference is the expensive step.
 """
 from __future__ import annotations
 import os
 
-# Фиксируем HF_HOME, чтобы перенаправление HOME не сломало кэш transformers
 os.environ["HF_HOME"] = "/Users/mverzhbitskiy/.cache/huggingface"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["HF_HUB_OFFLINE"] = "1"
 
-# Перенаправляем HOME в локальную папку кэша ПЕРЕД импортом любых библиотек, 
-# чтобы tensorflow/keras при ленивой загрузке внутри transformers 
-# не пытались читать/писать в недоступный ~/.keras/keras.json
+# Keep libraries from writing into the user's global home during model loading.
 _fake_home = os.path.join(os.getcwd(), "cache")
 os.makedirs(os.path.join(_fake_home, ".keras"), exist_ok=True)
 os.environ["HOME"] = _fake_home
@@ -33,17 +23,15 @@ import numpy as np
 import torch
 import librosa
 
-_MODELS: dict = {}   # ленивый кэш загруженных моделей
+_MODELS: dict = {}
 
 
-# ------------------------------------------------------------------ MERT
+# MERT
 def _extract_mert(wav, sr, cfg):
     from transformers import AutoModel, Wav2Vec2FeatureExtractor
     key = "mert"
     if key not in _MODELS:
         mid = cfg["spaces"]["mert"]["model_id"]
-        # Обход бага transformers в offline-режиме: передаем прямой путь к кэшу,
-        # чтобы он даже не пытался лезть в сеть за model.safetensors.
         import os
         cache_path = "/Users/mverzhbitskiy/.cache/huggingface/hub/models--m-a-p--MERT-v1-95M/snapshots/12af15fef9d0ac838c3f475bfbbf26d2060dd4f5"
         if os.path.exists(cache_path):
@@ -62,8 +50,7 @@ def _extract_mert(wav, sr, cfg):
         _MODELS[key] = (proc, model.to(_device()))
     proc, model = _MODELS[key]
     print("PREPARING INPUTS (MANUAL)", flush=True)
-    # Bypass Wav2Vec2FeatureExtractor to avoid mutex lock crash on macOS
-    # Feature extractor just does: (x - mean) / sqrt(var + 1e-7)
+    # Avoid Wav2Vec2FeatureExtractor mutex crashes observed on macOS.
     wav_norm = (wav - wav.mean()) / np.sqrt(wav.var() + 1e-7)
     inputs = {"input_values": torch.tensor(wav_norm, dtype=torch.float32).unsqueeze(0).to(_device())}
     
@@ -77,9 +64,9 @@ def _extract_mert(wav, sr, cfg):
     return h.cpu().numpy()
 
 
-# ------------------------------------------------------------------ MuQ
+# MuQ
 def _extract_muq(wav, sr, cfg):
-    from muq import MuQ                              # pip install muq
+    from muq import MuQ
     key = "muq"
     if key not in _MODELS:
         mid = cfg["spaces"]["muq"]["model_id"]
@@ -93,9 +80,9 @@ def _extract_muq(wav, sr, cfg):
     return h.cpu().numpy()
 
 
-# ------------------------------------------------------------------ Encodec
+# EnCodec
 def _extract_encodec(wav, sr, cfg):
-    """Непрерывный латент ДО квантизации (encoder output), не дискретные коды."""
+    """Return the continuous encoder latent before RVQ quantization."""
     from transformers import EncodecModel
     key = "encodec"
     if key not in _MODELS:
@@ -106,20 +93,14 @@ def _extract_encodec(wav, sr, cfg):
     # Bypass AutoProcessor to avoid macOS mutex lock crashes
     inputs = torch.tensor(wav, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(_device())
     with torch.no_grad():
-        # Непрерывный латент ДО RVQ-квантизации.
-        # model.encoder() — прямой вызов энкодера, возвращает (B, dim, T).
-        # НЕ model.encode() — тот прогоняет encoder + quantizer и отдаёт
-        # дискретные коды (audio_codes), а не непрерывный латент.
-        # Проверено: transformers 4.40, facebook/encodec_24khz,
-        #   encoder output shape = (1, 128, 2250) для 30s@24kHz = 75 fps.
         latent = model.encoder(inputs)   # (B, 128, T)
     z = latent.squeeze(0).transpose(0, 1)            # (T, 128)
     return z.cpu().numpy()
 
 
-# ------------------------------------------------------------------ MIR
+# MIR
 def _extract_mir(wav, sr, cfg):
-    """Ручные покадровые фичи. БЕЗ агрегации по времени."""
+    """Extract handcrafted frame-level MIR features without time pooling."""
     hop = cfg["spaces"]["mir"]["hop_length"]
     feats = []
     for name in cfg["spaces"]["mir"]["features"]:
@@ -151,20 +132,20 @@ def _device():
 
 
 def extract(filepath: str, space: str, cfg: dict) -> np.ndarray:
-    """Главная функция. Кэширует на диск. Возвращает (T, d)."""
+    """Extract or load a cached frame-level representation."""
     cache_dir = os.path.join(cfg["paths"]["cache"], space)
     os.makedirs(cache_dir, exist_ok=True)
     base = os.path.splitext(os.path.basename(filepath))[0]
     cache_path = os.path.join(cache_dir, f"{base}.npy")
     if os.path.exists(cache_path):
-        return np.load(cache_path)                   # возобновляемость
+        return np.load(cache_path)
 
     sr = cfg["data"]["sample_rate"]
     wav, _ = librosa.load(filepath, sr=sr, mono=True)
     arr = _DISPATCH[space](wav, sr, cfg)
     np.save(cache_path, arr)
     if _device() == "cuda":
-        torch.cuda.empty_cache()                     # Encodec/MuQ прожорливы
+        torch.cuda.empty_cache()
     elif _device() == "mps":
         torch.mps.empty_cache()
     return arr

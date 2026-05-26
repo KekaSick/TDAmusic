@@ -1,18 +1,10 @@
 """
 pointcloud.py
 -------------
-Превращение последовательности кадров в облако точек.
+Frame sequence to point cloud utilities.
 
-Две опции (обе нужны):
-  * takens : sliding-window embedding. Порядок кадров -> геометрия облака.
-             ТОЛЬКО здесь shuffle осмыслен. Периодичность периода T ->
-             петля H1 (теорема Такенса).
-  * direct : кадры как облако напрямую. Vietoris-Rips ИНВАРИАНТЕН к порядку
-             точек, поэтому shuffle на direct ничего не меняет — это важный
-             дидактический факт, а не баг.
-
-Прореживание (subsample) до n_points: гомологии в высокой размерности на
-длинных рядах нерешаемы. maxmin сохраняет геометрию лучше uniform.
+Takens embedding moves temporal order into geometry. Direct clouds are kept for
+visualization and diagnostics; Vietoris-Rips is invariant to point order there.
 """
 from __future__ import annotations
 import numpy as np
@@ -53,7 +45,7 @@ def subsample(cloud: np.ndarray, n: int, mode: str) -> np.ndarray:
 
 
 def _maxmin(cloud, n, seed=0):
-    """Жадный maxmin (farthest point sampling) — равномерное покрытие."""
+    """Greedy farthest-point sampling."""
     rng = np.random.default_rng(seed)
     chosen = [rng.integers(cloud.shape[0])]
     d = np.linalg.norm(cloud - cloud[chosen[0]], axis=1)
@@ -64,10 +56,8 @@ def _maxmin(cloud, n, seed=0):
     return cloud[chosen]
 
 
-# ---- Варианты С ВОЗВРАТОМ ИНДЕКСОВ (для интерпретации cocycles) ----
-
 def _maxmin_with_indices(cloud, n, seed=0):
-    """Жадный maxmin — возвращает (subcloud, indices в исходном облаке)."""
+    """Greedy farthest-point sampling with source indices."""
     rng = np.random.default_rng(seed)
     chosen = [int(rng.integers(cloud.shape[0]))]
     d = np.linalg.norm(cloud - cloud[chosen[0]], axis=1)
@@ -80,7 +70,7 @@ def _maxmin_with_indices(cloud, n, seed=0):
 
 
 def subsample_with_indices(cloud, n, mode):
-    """Как subsample(), но возвращает (subcloud, indices)."""
+    """Subsample while preserving source indices."""
     if cloud.shape[0] <= n:
         return cloud, np.arange(cloud.shape[0])
     if mode == "none":
@@ -94,16 +84,7 @@ def subsample_with_indices(cloud, n, mode):
 
 
 def build_cloud_with_indices(x, pc_cfg):
-    """Как build_cloud(), но возвращает (cloud, takens_starts, sub_indices).
-
-    Позволяет протащить индекс точки обратно к секунде аудио:
-      cocycle vertex i  →  sub_indices[i]  →  строка Такенс-облака
-      →  takens_starts[sub_indices[i]]  →  стартовый кадр окна в PCA-ряду.
-
-    takens_starts: массив стартовых кадров для каждой строки полного
-                   Такенс-облака (до прореживания). Для direct — np.arange(T).
-    sub_indices:   индексы выбранных строк в полном Такенс-/direct-облаке.
-    """
+    """Build a cloud and keep the mapping back to frame indices."""
     if pc_cfg["method"] == "takens":
         window = pc_cfg["window"]
         stride = pc_cfg["stride"]

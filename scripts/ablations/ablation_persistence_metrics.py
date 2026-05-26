@@ -212,7 +212,7 @@ def main():
         
     muq_row = df[df["space"]=="muq"].iloc[0]
     n_tracks = len(files)
-    print(f"Выборка: {n_tracks} треков")
+    print(f"Sample: {n_tracks} tracks")
     
     # Check if effect size > 0.1 for most metrics for MuQ
     positive_effects = 0
@@ -225,9 +225,9 @@ def main():
                 positive_effects += 1
                 
     ratio = positive_effects / total_metrics if total_metrics > 0 else 0
-    print(f"Положительных эффектов (>0.1): {positive_effects} из {total_metrics} ({ratio:.2f})")
+    print(f"Positive effects (>0.1): {positive_effects} of {total_metrics} ({ratio:.2f})")
     
-    print(f"\nВНИМАНИЕ: вердикт на подвыборке n={n_tracks}, пороги эвристические; ориентируйся на числа, а не на binary-вердикт.")
+    print(f"\nWARNING: subset verdict n={n_tracks}; thresholds are heuristic. Use the numbers, not only the binary verdict.")
     if ratio > 0.8:
         print("VERDICT: effect stable / persistent topology robust across metrics")
     else:

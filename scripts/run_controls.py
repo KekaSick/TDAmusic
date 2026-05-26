@@ -1,32 +1,10 @@
 """
 run_controls.py
 ---------------
-ЯДРО НАУЧНОЙ ЧАСТИ. Прогоняет контроли и within/between анализ
-по всем 4 каналам на размеченном подмножестве.
+Main surrogate-control and within/between analysis.
 
-Для каждого канала и каждого трека:
-  1. real:    preprocess → takens → Ripser → H1
-  2. shuffle: shuffle ИСХОДНОГО ряда ДО окна Такенса (×K повторов)
-  3. random:  phase randomization спектра (×K повторов)
-  4. iaaft:   IAAFT-суррогат (×K повторов)
-  5. mean_pool: среднее по кадрам (baseline вектор)
-
-Лестница контролей:
-  shuffle (порядок) → phase (линейная структура) → iaaft (лин. + распределение)
-
-Все три контроля делаются в K = controls.shuffle_repeats повторах
-с детерминированным seed на трек+повтор. max-pers усредняется по повторам.
-
-Метрики:
-  - within vs between genre по Вассерштейну + bootstrap-CI
-  - real↔shuffle расстояние vs real↔real (оценка эффекта shuffle)
-  - max-persistence H1 real vs random vs iaaft vs shuffle
-  - парные Wilcoxon + rank-biserial для всех пар
-  - Mantel между DL-каналами (cross_space_compare)
-  - H1 point counts
-
-Результаты → results/tables/
-Числа — как есть, без интерпретации.
+For each representation, this computes real, shuffle, phase, and IAAFT diagrams
+with deterministic per-track seeds, then writes raw tables for the paper.
 """
 from __future__ import annotations
 import os, sys, time, json, warnings
@@ -43,7 +21,7 @@ import embed_spaces, preprocess, pointcloud, persistence, controls, distances
 
 
 def max_persistence_h1(dgm: np.ndarray) -> float:
-    """Максимальная персистентность H1 (death - birth), finite only."""
+    """Maximum finite H1 persistence."""
     if len(dgm) == 0:
         return 0.0
     finite = dgm[np.isfinite(dgm[:, 1])]
@@ -53,7 +31,7 @@ def max_persistence_h1(dgm: np.ndarray) -> float:
 
 
 def h1_count(dgm: np.ndarray, thresh: float = 0.0) -> int:
-    """Число точек H1 (finite) с persistence >= thresh."""
+    """Count finite H1 points with persistence above threshold."""
     if len(dgm) == 0:
         return 0
     finite = dgm[np.isfinite(dgm[:, 1])]
@@ -72,7 +50,7 @@ def wasserstein_single(d1, d2):
 def process_space(space: str, cfg: dict, files: list, labels: np.ndarray,
                   tr_idx: np.ndarray, rng: np.random.Generator,
                   compute_random: bool = True, compute_iaaft: bool = True) -> dict:
-    """Полная обработка одного пространства."""
+    """Run the full analysis for one representation space."""
     t0 = time.time()
     print(f"\n{'='*60}")
     print(f"  SPACE: {space}")

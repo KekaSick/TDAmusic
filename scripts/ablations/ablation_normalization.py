@@ -75,7 +75,7 @@ def main():
         
     try:
         n_tracks = len(files)
-        print(f"Выборка: {n_tracks} треков")
+        print(f"Sample: {n_tracks} tracks")
         
         rank_flip = False
         variants = df["variant"].unique()
@@ -87,7 +87,7 @@ def main():
                 if eff_muq_rows[0] - eff_mert_rows[0] < -0.05:
                     rank_flip = True
                     
-        print(f"\nВНИМАНИЕ: вердикт на подвыборке n={n_tracks}, порог -0.05 эвристический; ориентируйся на числа, а не на binary-вердикт.")
+        print(f"\nWARNING: subset verdict n={n_tracks}; -0.05 threshold is heuristic. Use the numbers, not only the binary verdict.")
         if rank_flip:
             print("VERDICT: moderately sensitive / results normalization-sensitive")
         else:

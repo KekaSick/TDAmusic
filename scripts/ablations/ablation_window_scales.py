@@ -51,7 +51,7 @@ def main():
     
     print("\n--- VERDICT ---")
     n_tracks = len(files)
-    print(f"Выборка: {n_tracks} треков")
+    print(f"Sample: {n_tracks} tracks")
     
     if len(df) == 0:
         print("VERDICT: Execution failed, no results.")
@@ -78,7 +78,7 @@ def main():
                     if diff < -0.05:
                         rank_flip = True
                         
-            print(f"\nВНИМАНИЕ: вердикт на подвыборке n={n_tracks}, порог diff -0.05 эвристический; ориентируйся на числа, а не на binary-вердикт.")
+            print(f"\nWARNING: subset verdict n={n_tracks}; diff threshold -0.05 is heuristic. Use the numbers, not only the binary verdict.")
             if rank_flip:
                 print("VERDICT: moderately sensitive / results timescale-sensitive")
             else:

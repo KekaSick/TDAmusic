@@ -56,7 +56,7 @@ def main():
     # Verdict
     print("\n--- VERDICT ---")
     n_tracks = len(files)
-    print(f"Выборка: {n_tracks} треков")
+    print(f"Sample: {n_tracks} tracks")
     
     sensitive = False
     for space in spaces:
@@ -66,7 +66,7 @@ def main():
         if diff > 0.1:
             sensitive = True
             
-    print(f"\nВНИМАНИЕ: вердикт на подвыборке n={n_tracks}, порог spread 0.1 эвристический; ориентируйся на числа, а не на binary-вердикт.")
+    print(f"\nWARNING: subset verdict n={n_tracks}; spread threshold 0.1 is heuristic. Use the numbers, not only the binary verdict.")
     if sensitive:
         print("VERDICT: strongly configuration-dependent / sampling-density sensitive")
     else:

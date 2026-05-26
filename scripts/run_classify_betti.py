@@ -1,23 +1,10 @@
 """
 run_classify_betti.py
 ---------------------
-Финальная классификация с betti-векторизацией.
-НЕ переизвлекает эмбеддинги — работает по кэшу.
-Пересчитывает диаграммы, векторизует betti-кривой, классифицирует с bootstrap-CI.
-Обновляет classification_full.csv и confusion_best.csv.
+Final genre classification with Betti-curve vectorization.
 
-Два классификатора:
-  - logreg: LogisticRegression (линейный baseline)
-  - hgb:    HistGradientBoostingClassifier (нелинейный, gradient boosting)
-Оба обучаются на тех же feature_sets и train/test split.
-Колонка "classifier" различает строки в classification_full.csv.
-
-Воспроизводимость:
-  Каждый контроль для трека i, повтора k получает ИЗОЛИРОВАННЫЙ seed:
-    shuffle -> default_rng(seed*1000 + i*100 + k)
-    random  -> default_rng(seed*2000 + i*100 + k)
-    iaaft   -> default_rng(seed*3000 + i*100 + k)
-  Betti-вектор контроля = среднее по K=shuffle_repeats реализациям.
+Embeddings are loaded from cache. Each surrogate repeat uses an isolated,
+deterministic seed, and control Betti vectors are averaged over repeats.
 """
 import os
 import sys
@@ -213,7 +200,7 @@ def main():
                     "F1_CI": f"[{f1_ci[0]:.3f}, {f1_ci[1]:.3f}]",
                 })
 
-                # Лучший канал = max F1 на persistence (across all classifiers)
+                # Track the best persistence-only classifier.
                 if f_name == "persistence" and f1 > best_f1:
                     best_f1 = f1
                     cm = confusion_matrix(y_test, y_pred,

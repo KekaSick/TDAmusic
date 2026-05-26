@@ -1,31 +1,8 @@
 """
 collect_pvalues.py
 ------------------
-Сбор ВСЕХ p-value из выходных таблиц results/tables/ и коррекция
-на множественность (Benjamini–Hochberg FDR).
-
-Семейства FDR (обоснование выбора):
-===================================
-Каждый тест относится к одному из логически связанных «вопросов» в статье.
-Применять одну глобальную FDR ко всему семейству из ~400 p-values
-слишком консервативно: тесты из разных частей статьи отвечают на независимые
-гипотезы (контроли H1, Mantel cross-space).
-Выбираем компромисс: семейства по ТИПУ теста (scope).
-
-Семейства:
-  1. controls_shuffle     — Wilcoxon shuffle > within (по каналам)
-  2. controls_persistence — Wilcoxon max-pers: real vs random/shuffle/iaaft (каналы)
-  3. mantel               — Mantel-тесты между парами пространств
-
-FDR применяется ВНУТРИ каждого семейства.
-
-Выход: results/tables/pvalues_master.csv
-Колонки: family, test, scope, p_raw, p_fdr, significant_fdr
-
-Также выводит список тестов, значимых по сырому p, но не выживающих FDR.
-
-Примечание (косметика): p_raw = 0.0 для тестов shuffle означает машинный ноль
-(т.е. p < 1e-300). При переносе результатов в статью следует указывать p < 1e-300.
+Collect p-values from result tables and apply Benjamini-Hochberg FDR within
+logical test families.
 """
 from __future__ import annotations
 
@@ -40,17 +17,13 @@ import pandas as pd
 import yaml
 from statsmodels.stats.multitest import multipletests
 
-# ---- paths ----
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TABLES = os.path.join(ROOT, "results", "tables")
 TABLES_RESULTS = os.path.join(TABLES, "results")
 
-# ---- load config for FDR alpha ----
 cfg_path = os.path.join(ROOT, "config.yaml")
 cfg = yaml.safe_load(open(cfg_path))
 FDR_ALPHA = cfg.get("fdr_alpha", 0.05)
-
-# ---- helpers ----
 
 
 def _parse_sci(val) -> float | None:
@@ -70,12 +43,9 @@ def _parse_sci(val) -> float | None:
 
 
 def collect_all() -> pd.DataFrame:
-    """Собирает все p-value из всех таблиц. Возвращает DataFrame."""
+    """Collect all p-values into one DataFrame."""
     rows: list[dict] = []
 
-    # ==================================================================
-    # 1. controls_full.json  — основные контроли по 4 каналам
-    # ==================================================================
     json_path = os.path.join(TABLES_RESULTS, "controls_full.json")
     if os.path.exists(json_path):
         with open(json_path) as f:
@@ -121,15 +91,9 @@ def collect_all() -> pd.DataFrame:
     else:
         print(f"  WARNING: {json_path} not found, skipping controls_full")
 
-    # ==================================================================
-    # 2. controls_summary.csv  — formatted p-values (fallback if JSON absent)
-    # ==================================================================
     summary_path = os.path.join(TABLES_RESULTS, "controls_summary.csv")
     # Already covered by JSON above, skip to avoid duplicates.
 
-    # ==================================================================
-    # 3. mantel_matrix.csv  — Mantel permutation test p-values
-    # ==================================================================
     mantel_path = os.path.join(TABLES, "mantel_matrix.csv")
     if os.path.exists(mantel_path):
         mantel_df = pd.read_csv(mantel_path)
@@ -150,20 +114,14 @@ def collect_all() -> pd.DataFrame:
     else:
         print(f"  WARNING: {mantel_path} not found")
 
-    # ==================================================================
-    # 4. cycle_vs_cocycle_full.csv  — chroma tests for cycles
-    # ==================================================================
     cvc_path = os.path.join(TABLES, "cycle_vs_cocycle_full.csv")
     if os.path.exists(cvc_path):
         cvc_df = pd.read_csv(cvc_path)
-        # Дедупликация: группируем по уникальным трекам, чтобы избежать run1/run2/nested.
-        # В файле full.csv предполагается 199 уникальных треков.
         unique_tracks = cvc_df.drop_duplicates(subset=["track"])
         
         for _, row in unique_tracks.iterrows():
             track = row.get("track", "")
             
-            # Основной тест: цикл Dionysus. Идёт в основную множественность
             p_cy = _parse_sci(row.get("p_dio_cy"))
             if p_cy is not None:
                 rows.append({
@@ -173,8 +131,6 @@ def collect_all() -> pd.DataFrame:
                     "p_raw": p_cy,
                 })
                 
-            # Дополнительные (коциклы, старые тесты) - НЕ идут в основную множественность,
-            # выносим в отдельное deprecated семейство.
             deprecated_cols = ["p_ripser_co", "p_dio_co", "prev_p"]
             for col in deprecated_cols:
                 if col in unique_tracks.columns:
@@ -209,7 +165,6 @@ def apply_fdr(df: pd.DataFrame, alpha: float = 0.05) -> pd.DataFrame:
         if len(pvals) == 0:
             continue
 
-        # Benjamini-Hochberg
         reject, p_corrected, _, _ = multipletests(
             pvals, alpha=alpha, method="fdr_bh"
         )
@@ -222,7 +177,7 @@ def apply_fdr(df: pd.DataFrame, alpha: float = 0.05) -> pd.DataFrame:
 
 def main():
     print("=" * 70)
-    print("  collect_pvalues.py — сбор p-values и FDR-коррекция")
+    print("  collect_pvalues.py - p-value collection and FDR correction")
     print("=" * 70)
     print(f"  FDR alpha = {FDR_ALPHA}")
     print(f"  Tables dir: {TABLES}")
@@ -255,14 +210,14 @@ def main():
     lost = df[df["significant_raw"] & ~df["significant_fdr"]]
     if len(lost) > 0:
         print(f"\n{'='*70}")
-        print(f"  ТЕСТЫ, ЗНАЧИМЫЕ ПО СЫРОМУ p, НО НЕ ВЫЖИВАЮЩИЕ FDR:")
+        print("  TESTS SIGNIFICANT BY RAW p BUT NOT AFTER FDR:")
         print(f"{'='*70}")
         for _, row in lost.iterrows():
             print(f"  [{row['family']}] {row['test']} | {row['scope']}")
             print(f"    p_raw = {row['p_raw']:.6e}  →  p_fdr = {row['p_fdr']:.6e}")
-        print(f"\nВсего: {len(lost)} тестов потеряли значимость после FDR")
+        print(f"\nTotal: {len(lost)} tests lost significance after FDR")
     else:
-        print("\nВсе тесты, значимые по сырому p, также значимы после FDR.")
+        print("\nAll tests significant by raw p also survive FDR.")
 
     # 6. Per-family summary table
     print(f"\n{'='*70}")

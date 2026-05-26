@@ -51,7 +51,7 @@ def main():
         
     try:
         n_tracks = len(files)
-        print(f"Выборка: {n_tracks} треков")
+        print(f"Sample: {n_tracks} tracks")
         
         baseline_32_muq_rows = df[(df["pca_dim"]==32) & (df["space"]=="muq")]["real_vs_shuffle_effect"].values
         baseline_32_mert_rows = df[(df["pca_dim"]==32) & (df["space"]=="mert")]["real_vs_shuffle_effect"].values
@@ -72,7 +72,7 @@ def main():
                 if diff < -0.05: # MuQ became worse than MERT by a margin
                     rank_flip = True
                     
-        print(f"\nВНИМАНИЕ: вердикт на подвыборке n={n_tracks}, порог -0.05 эвристический; ориентируйся на числа, а не на binary-вердикт.")
+        print(f"\nWARNING: subset verdict n={n_tracks}; -0.05 threshold is heuristic. Use the numbers, not only the binary verdict.")
         if rank_flip:
             print("VERDICT: moderately sensitive / results PCA-sensitive")
         else:

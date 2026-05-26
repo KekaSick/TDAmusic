@@ -1,19 +1,10 @@
 """
 preprocess.py
 -------------
-Приведение РАЗНЫХ пространств к общему знаменателю, чтобы кросс-сравнение
-было честным:
-  1. ресемпл кадрового ряда к target_fps (MERT 75, MuQ 25, ... -> 25),
-  2. per-feature стандартизация (StandardScaler) — выравнивает дисперсии
-     разных фичей (критично для MIR: centroid ~5000, chroma ~0-1),
-  3. нормализация каждого кадра на единичную сферу (евклид -> угловое),
-  4. PCA до общей pca_dim (fit на train, transform на test — без утечки).
+Shared preprocessing for all representation spaces.
 
-Порядок шагов 2-3-4 принципиален: стандартизация выравнивает масштабы
-фичей, нормализация переводит в угловую метрику, PCA снижает размерность.
-
-UMAP здесь НЕТ. Снижение размерности для гомологий — только PCA.
-UMAP живёт в viz/ и в Ripser НИКОГДА не подаётся.
+Order: resample frames, scale features, L2-normalize frames, then PCA. UMAP is
+only for visualization and is never passed to persistent homology.
 """
 from __future__ import annotations
 import logging
@@ -27,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def resample_fps(x: np.ndarray, src_fps: float, tgt_fps: float) -> np.ndarray:
-    """Fourier ресемпл временно́го ряда кадров (T_src, d) -> (T_tgt, d) через scipy.signal.resample."""
+    """Fourier-resample a frame sequence along time."""
     if abs(src_fps - tgt_fps) < 1e-6:
         return x
     t_tgt = max(1, int(round(x.shape[0] * tgt_fps / src_fps)))
@@ -45,29 +36,15 @@ def normalize_frames(x: np.ndarray, mode: str = "unit_sphere") -> np.ndarray:
 
 
 class PCAReducer:
-    """Обучает StandardScaler + PCA на train, применяет ко всем.
-
-    Полный поток внутри fit/transform:
-        StandardScaler (per-feature) → normalize (per-frame) → PCA
-
-    Использует ДЕТЕРМИНИРОВАННЫЙ full-batch PCA (random_state=42).
-    IncrementalPCA убран: он зависел от порядка батчей и давал
-    разные результаты при разных прогонах → невоспроизводимые p-values.
-
-    StandardScaler обучается на train, фиксирует mean/std по фичам,
-    и применяется к test — без утечки. Контролируется флагом standardize.
-
-    Если d < pca_dim (например, MIR d=15 < pca_dim=32), автоматически
-    снижает n_components до min(pca_dim, d) — иначе sklearn PCA упадёт.
-    """
+    """Fit StandardScaler + PCA on train frames and reuse them everywhere."""
     def __init__(self, dim: int, standardize: bool = True,
                  normalize: str = "unit_sphere", scaler_type: str = "standard"):
         self._requested_dim = dim
         self._standardize = standardize
         self._normalize = normalize
         self._scaler_type = scaler_type
-        self.scaler = None  # StandardScaler/RobustScaler, создаётся в fit() если standardize
-        self.pca = None     # PCA, создаётся в fit()
+        self.scaler = None
+        self.pca = None
 
     def fit(self, frames_list: list[np.ndarray], batch_size: int = 50):
         """Fit StandardScaler + PCA on all frames (deterministic).
@@ -82,7 +59,6 @@ class PCAReducer:
                 "PCA: requested %d components but data has %d features → using %d",
                 self._requested_dim, all_frames.shape[1], actual_dim)
 
-        # StandardScaler/RobustScaler: fit on all data at once (deterministic)
         if self._standardize:
             if self._scaler_type == "robust":
                 from sklearn.preprocessing import RobustScaler
@@ -93,10 +69,7 @@ class PCAReducer:
             all_frames = self.scaler.transform(all_frames)
             logger.info("%s: %d features", self.scaler.__class__.__name__, self.scaler.center_.shape[0] if self._scaler_type == "robust" else self.scaler.mean_.shape[0])
 
-        # Normalize
         all_frames = normalize_frames(all_frames, self._normalize)
-
-        # PCA: full SVD (LAPACK), deterministic without random_state
         self.pca = PCA(n_components=actual_dim, svd_solver='full')
         self.pca.fit(all_frames)
 
@@ -105,7 +78,7 @@ class PCAReducer:
         return self
 
     def transform(self, x: np.ndarray) -> np.ndarray:
-        """StandardScaler → normalize → PCA (всё в одном вызове)."""
+        """Apply fitted scaler, frame normalization, and PCA."""
         if self.pca is None:
             raise RuntimeError("PCAReducer.fit() must be called before transform()")
         if self.scaler is not None:
@@ -115,7 +88,7 @@ class PCAReducer:
 
     @property
     def dim(self) -> int:
-        """Фактическая размерность после fit (может быть < requested)."""
+        """Actual PCA dimension after fitting."""
         if self.pca is None:
             return self._requested_dim
         return self.pca.n_components_
@@ -126,24 +99,21 @@ class PCAReducer:
 
     @property
     def explained_per_component(self) -> np.ndarray:
-        """Вектор explained_variance_ratio_ по компонентам."""
+        """PCA explained variance ratio per component."""
         return self.pca.explained_variance_ratio_
 
     def save(self, path: str):
-        """Сохранить обученный reducer (для viz/classify скриптов)."""
+        """Save the fitted reducer."""
         joblib.dump(self, path)
 
     @staticmethod
     def load(path: str) -> PCAReducer:
-        """Загрузить ранее обученный reducer."""
+        """Load a fitted reducer."""
         return joblib.load(path)
 
 
 def prepare_track(x_raw, space_cfg, common_cfg, reducer: PCAReducer):
-    """Полный препроцесс одного трека одного пространства.
-
-    resample → reducer.transform() (= scaler → normalize → PCA).
-    """
+    """Preprocess one track for one representation space."""
     x = resample_fps(x_raw, space_cfg["native_fps"], common_cfg["target_fps"]) \
         if "native_fps" in space_cfg else x_raw
     x = reducer.transform(x)

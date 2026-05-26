@@ -71,7 +71,7 @@ def main():
     
     cfg, files, _, _, _ = get_data_for_seed(seeds[0])
     n_tracks = len(files)
-    print(f"Выборка: {n_tracks} треков (для каждого seed)")
+    print(f"Sample: {n_tracks} tracks per seed")
     
     for space in spaces:
         effs = df[df["space"]==space]["real_vs_shuffle_effect"].values
@@ -81,7 +81,7 @@ def main():
         if s > 0.15:
             variance_high = True
             
-    print(f"\nВНИМАНИЕ: вердикт на подвыборке n={n_tracks}, порог std 0.15 эвристический; ориентируйся на числа, а не на binary-вердикт.")
+    print(f"\nWARNING: subset verdict n={n_tracks}; std threshold 0.15 is heuristic. Use the numbers, not only the binary verdict.")
     print("\n--- VERDICT ---")
     if variance_high:
         print("VERDICT: moderately sensitive / results split-sensitive")
