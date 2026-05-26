@@ -1,0 +1,46 @@
+\xpg@aux {}{english}
+\contentsline {section}{Аннотация}{3}{Doc-Start}%
+\xpg@aux {}{russian}
+\xpg@aux {}{english}
+\contentsline {section}{Abstract}{4}{Doc-Start}%
+\contentsline {section}{\numberline {1}Introduction}{5}{section.1}%
+\contentsline {section}{\numberline {2}Literature Review}{6}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Topological Data Analysis and Persistent Homology}{6}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}TDA for Audio and Music}{6}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Why Frame-Level Embeddings Are Required for TDA}{6}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Neural Audio Embeddings Used in This Work}{7}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}Layer Choice in Transformer Audio Models}{7}{subsection.2.5}%
+\contentsline {subsection}{\numberline {2.6}Delay Embedding and Takens' Theorem}{7}{subsection.2.6}%
+\contentsline {section}{\numberline {3}Problem Statement and Hypotheses}{9}{section.3}%
+\contentsline {section}{\numberline {4}Data}{10}{section.4}%
+\contentsline {section}{\numberline {5}Methodology}{11}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Embedding Extraction}{11}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Preprocessing and Common Denominator}{12}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Point Cloud Construction: Takens Embedding}{12}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Computing Persistent Homology}{13}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Diagram Vectorization}{14}{subsection.5.5}%
+\contentsline {subsection}{\numberline {5.6}Surrogate Controls}{14}{subsection.5.6}%
+\contentsline {subsection}{\numberline {5.7}Statistical Framework}{15}{subsection.5.7}%
+\contentsline {subsection}{\numberline {5.8}Downstream Classification}{16}{subsection.5.8}%
+\contentsline {subsection}{\numberline {5.9}Loop Localization Analysis}{16}{subsection.5.9}%
+\contentsline {subsection}{\numberline {5.10}Popularity Analysis}{18}{subsection.5.10}%
+\contentsline {subsection}{\numberline {5.11}Ablation Checks and Reproducibility}{18}{subsection.5.11}%
+\contentsline {section}{\numberline {6}Results}{20}{section.6}%
+\contentsline {subsection}{\numberline {6.1}H1~--- Reality of Topological Loops}{20}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}H2~--- Within-/Between-Genre Distances}{21}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}H3~--- Nonlinear Temporal Structure}{22}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}H4~--- Representation Consistency}{22}{subsection.6.4}%
+\contentsline {subsection}{\numberline {6.5}H5~--- Genre Classification}{23}{subsection.6.5}%
+\contentsline {subsection}{\numberline {6.6}H-loop~--- Chromatic Correspondence of Loops to Repeated Sections}{24}{subsection.6.6}%
+\contentsline {subsection}{\numberline {6.7}Robustness Analysis}{25}{subsection.6.7}%
+\contentsline {subsection}{\numberline {6.8}Multiple-Comparison Control}{27}{subsection.6.8}%
+\contentsline {subsection}{\numberline {6.9}Popularity and Topological Findings}{28}{subsection.6.9}%
+\contentsline {section}{\numberline {7}Discussion}{30}{section.7}%
+\contentsline {subsection}{\numberline {7.1}What Trajectory Topology Captures}{30}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}What Trajectory Topology Does Not Capture}{30}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Methodological Insight: Strict Surrogates Matter More Than Shuffle}{31}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Limitations}{31}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}Methodological Lessons}{31}{subsection.7.5}%
+\contentsline {section}{\numberline {8}Conclusion}{32}{section.8}%
+\contentsline {section}{\numberline {9}Future Work}{33}{section.9}%
+\contentsline {section}{Bibliography}{34}{section.9}%

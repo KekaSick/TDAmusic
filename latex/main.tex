@@ -1,0 +1,137 @@
+\documentclass[12pt,a4paper]{article}
+
+% ---- XeLaTeX fonts ----
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\usepackage{polyglossia}
+\setdefaultlanguage{english}
+\setotherlanguage{russian}
+
+% ---- Page geometry (Annex 7: left=25mm, right=10mm, top=bottom=20mm) ----
+\usepackage[left=25mm,right=10mm,top=20mm,bottom=20mm]{geometry}
+
+% ---- Line spacing 1.5 ----
+\usepackage{setspace}
+\onehalfspacing
+
+% ---- Paragraph indent 1.25cm ----
+\setlength{\parindent}{1.25cm}
+
+% ---- Prevent overfull hboxes ----
+\emergencystretch=1em
+\tolerance=1000
+
+% ---- Math ----
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{unicode-math}
+\setmathfont{latinmodern-math.otf}
+
+% ---- Tables ----
+\usepackage{booktabs}
+\usepackage{array}
+
+% ---- Graphics ----
+\usepackage{graphicx}
+\usepackage{float}
+\graphicspath{{../results/figures/paper/}}
+
+% ---- Hyperlinks ----
+\usepackage[hidelinks]{hyperref}
+
+% ---- Page numbering: bottom center ----
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\thepage}\renewcommand{\headrulewidth}{0pt}}
+
+% ---- Caption formatting ----
+\usepackage{caption}
+\captionsetup[table]{justification=raggedright,singlelinecheck=false,labelsep=endash,position=above}
+\captionsetup[figure]{justification=centering,labelsep=endash,position=below}
+
+% ---- Section formatting ----
+\usepackage{titlesec}
+\titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\bfseries}{\thesubsubsection}{1em}{}
+
+% ---- Prevent widows/orphans ----
+\widowpenalty=10000
+\clubpenalty=10000
+
+% ---- Custom commands ----
+\newcommand{\sectionbreak}{\clearpage}
+
+% ==================== DOCUMENT ====================
+\begin{document}
+
+% ---- Title page (unnumbered) ----
+\input{title_kr}
+\thispagestyle{empty}
+
+% ---- Table of Contents ----
+\clearpage
+\tableofcontents
+
+% ---- Abstract (Russian) ----
+\clearpage
+\section*{Аннотация}
+\addcontentsline{toc}{section}{Аннотация}
+\input{sections/abstract_ru}
+
+% ---- Abstract (English) ----
+\section*{Abstract}
+\addcontentsline{toc}{section}{Abstract}
+\input{sections/abstract_en}
+
+% ---- Keywords ----
+\bigskip
+\noindent\textbf{Keywords:} topological data analysis, persistent homology, neural audio embeddings, music information retrieval, genre classification, surrogate controls, Takens embedding, persistence diagrams, Betti curves, GTZAN.
+
+% ---- Introduction ----
+\clearpage
+\section{Introduction}\label{sec:intro}
+\input{sections/introduction}
+
+% ---- Literature Review ----
+\section{Literature Review}\label{sec:litreview}
+\input{sections/literature_review}
+
+% ---- Problem Statement and Hypotheses ----
+\section{Problem Statement and Hypotheses}\label{sec:hypotheses}
+\input{sections/hypotheses}
+
+% ---- Data ----
+\section{Data}\label{sec:data}
+\input{sections/data}
+
+% ---- Methodology ----
+\section{Methodology}\label{sec:methodology}
+\input{sections/methodology}
+
+% ---- Results ----
+\clearpage
+\section{Results}\label{sec:results}
+\input{sections/results}
+
+% ---- Discussion ----
+\section{Discussion}\label{sec:discussion}
+\input{sections/discussion}
+
+% ---- Conclusion ----
+\clearpage
+\section{Conclusion}\label{sec:conclusion}
+\input{sections/conclusion}
+
+% ---- Future Work ----
+\section{Future Work}\label{sec:future}
+\input{sections/future_work}
+
+% ---- Bibliography ----
+\clearpage
+\addcontentsline{toc}{section}{Bibliography}
+\input{sections/bibliography}
+
+\end{document}

@@ -1,0 +1,306 @@
+The pipeline is a sequence of mathematical transformations of the same object: an audio track is first converted into a time series of features, then into a point cloud, then into a persistence diagram, and finally into statistics, distances, classification features, and geometric cycle representatives:
+\begin{equation}\label{eq:pipeline}
+\text{audio}
+\rightarrow E
+\rightarrow X
+\rightarrow Z
+\rightarrow D_1
+\rightarrow
+\{\text{max-persistence},\; W(D_i,D_j),\; \beta_D,\; \text{cycle vertices}\}.
+\end{equation}
+Here $E$ is the original frame-level feature matrix, $X$ is the normalized and dimension-reduced time series, $Z$ is the Takens point cloud, and $D_1$ is the persistence diagram for one-dimensional homology (see Figure~\ref{fig:pipeline}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{fig01_pipeline}
+    \caption{Overview of the topological pipeline.}
+    \label{fig:pipeline}
+\end{figure}
+
+\subsection{Embedding Extraction}\label{ssec:embed}
+
+Four sources of features were used; they differ in architecture and frame rate:
+\begin{itemize}
+    \item \textbf{MERT}~\cite{li2023mert} (layer~7): a self-supervised acoustic masked-prediction model, 75~frames/s, dimension~768.
+    \item \textbf{MuQ}~\cite{zhu2025muq} (layer~10): a music SSL model, native 25~frames/s, dimension~1024.
+    \item \textbf{EnCodec}~\cite{defossez2022encodec} (continuous latent): a neural audio codec, 75~frames/s, dimension~128. The continuous latent before quantization was used, not discrete RVQ codes.
+    \item \textbf{MIR} (librosa~\cite{mcfee2015librosa}): traditional frame-level features: chroma\_cens (12~pitch classes) plus spectral centroid, flatness, and bandwidth; approximately 47~frames/s, dimension~15.
+\end{itemize}
+
+Embeddings were extracted once and cached to disk. For GTZAN (999 tracks), the cache size was several gigabytes.
+
+\subsection{Preprocessing and Common Denominator}\label{ssec:preprocess}
+
+For fair cross-comparison, all representations were brought to a common denominator. The order of steps is essential.
+
+\begin{enumerate}
+    \item \textbf{Resampling of the frame sequence} to a common $f_t = 25$~frames/s using the Fourier method. This removes frame-rate differences between MERT/EnCodec (75~fps) and MuQ (25~fps). If the original frequency is $f_s$, the new length is
+    \begin{equation}\label{eq:resample}
+    T'=\operatorname{round}\!\left(T\frac{f_t}{f_s}\right).
+    \end{equation}
+
+    \item \textbf{StandardScaler} (per feature, fitted on train): feature-scale alignment. For coordinate $j$:
+    \begin{equation}\label{eq:scaler}
+    S(x)_j=\frac{x_j-\mu_j}{\sigma_j+\varepsilon}, \qquad
+    \mu_j=\frac{1}{|\mathcal{T}|}\sum_{x\in\mathcal{T}}x_j, \quad
+    \sigma_j^2=\frac{1}{|\mathcal{T}|}\sum_{x\in\mathcal{T}}(x_j-\mu_j)^2,
+    \end{equation}
+    where $\mathcal{T}$ is the set of all training frames for a representation.
+
+    \item \textbf{Unit-sphere normalization of each frame}:
+    \begin{equation}\label{eq:normalize}
+    \tilde{x}=\frac{S(x)}{\|S(x)\|_2}.
+    \end{equation}
+    This reduces the influence of norm/energy. For two normalized frames $\tilde{x},\tilde{y}$, Euclidean distance becomes equivalent to angular distance: $\|\tilde{x}-\tilde{y}\|_2^2 = 2 - 2\cos(\tilde{x},\tilde{y})$.
+
+    \item \textbf{PCA to 32 components} (fitted on train): dimensionality reduction before Takens embedding. If $C$ is the covariance matrix of normalized training frames, the first $m$ eigenvectors $u_1,\ldots,u_m$ are selected, and the final frame is
+    \begin{equation}\label{eq:pca}
+    R(x)=\left(\langle \tilde{x},u_1\rangle,\ldots,\langle \tilde{x},u_m\rangle\right).
+    \end{equation}
+    In the main runs, $m=32$; if the original dimension is less than 32, $m=\min(d,32)$. For MIR, where the original dimension is $15 < 32$, PCA is not applied. Explained variance: EnCodec~$\approx 84\%$, MERT~$\approx 36\%$, MuQ~$\approx 22\%$ (the low value for MuQ reflects high dimensionality and a more uniform variance distribution).
+\end{enumerate}
+
+The parameters $\mu_j$, $\sigma_j$, and $u_j$ are estimated only on the training split and then applied unchanged to all tracks, preventing test tracks from influencing the coordinate system in which their topology is measured.
+
+\subsection{Point Cloud Construction: Takens Embedding}\label{ssec:takens}
+
+After preprocessing, each track is represented as $X=(x_1,\ldots,x_{T'})^\top$, $x_t\in\mathbb{R}^{m}$. From this sequence, a sliding-window Takens embedding is built with window length $w=16$ frames and stride $s=4$ frames. Each cloud point is a short trajectory of $w$ consecutive frames flattened into one vector:
+\begin{equation}\label{eq:takens}
+z_j = (x_j,x_{j+1},\ldots,x_{j+w-1}) \in \mathbb{R}^{wm},\qquad
+j=1,1{+}s,1{+}2s,\ldots,T'{-}w{+}1.
+\end{equation}
+The number of points is $N = \lfloor (T'-w)/s\rfloor+1$. For a 30-second GTZAN track at 25~frames/s, $T'\approx750$ and $N\approx184$. In the main experiments, the upper bound is $N_{\max}=300$, so GTZAN clouds are effectively not subsampled. In the H-loop branch for 90-second fragments, a mapping from cloud vertex to audio time is additionally stored:
+\begin{equation}\label{eq:time_map}
+t(v)=\frac{\operatorname{start}(v)+w/2}{25}.
+\end{equation}
+
+Intuitively, temporal order is converted into point-cloud geometry; when a trajectory returns to a nearby region of feature space, this can appear as an $H_1$ loop. However, Takens embeddings naturally tend to generate recurrent geometry for quasiperiodic signals; therefore, the presence of loops alone proves nothing. What matters is whether real loops exceed surrogate controls.
+
+\subsection{Computing Persistent Homology}\label{ssec:ph}
+
+Persistent homology is computed through the Vietoris--Rips filtration using Ripser~\cite{bauer2021ripser} ($\text{maxdim}=1$, i.e.\ $H_0$ and $H_1$). As $\varepsilon$ grows, $H_1$ classes are born and die, producing a diagram:
+\begin{equation}\label{eq:vr}
+\operatorname{VR}_\varepsilon(Z)=
+\left\{\sigma\subseteq Z:\ \max_{u,v\in\sigma}\|u-v\|_2\le \varepsilon\right\},
+\qquad
+D_1(Z)=\{(b_i,d_i)\}_{i=1}^{r}.
+\end{equation}
+The main scalar feature for controls is maximum $H_1$ persistence:
+\begin{equation}\label{eq:maxpers}
+\operatorname{mp}(Z)=\max_{(b_i,d_i)\in D_1(Z)}(d_i-b_i).
+\end{equation}
+Examples of such diagrams for real tracks and their surrogate controls are shown in Figure~\ref{fig:persistence_diagrams}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig12_persistence_diagrams}
+    \caption{Examples of persistence diagrams for real audio embeddings and their surrogate controls.}
+    \label{fig:persistence_diagrams}
+\end{figure}
+
+To interpret Figure~\ref{fig:persistence_diagrams}, note that the horizontal axis represents the birth time (the filtration radius $\varepsilon$ at which a topological loop is formed) and the vertical axis represents the death time (the radius at which the loop is filled in). Points located close to the diagonal line ($y=x$) represent short-lived loops, which are typically interpreted as topological noise or minor local fluctuations. Conversely, points located far above the diagonal correspond to highly persistent loops (large $d_i - b_i$), indicating robust, large-scale recurrent geometry in the embedding trajectory. As seen in the example, the persistence diagram for the real audio track exhibits points noticeably farther from the diagonal than its surrogate controls (Shuffle, Phase, and IAAFT). This visual separation intuitively demonstrates how the controls destroy the genuine long-term temporal structure of the track, resulting in diagrams dominated by noise clustered near the diagonal.
+
+Two tracks are compared by Wasserstein distance between diagrams:
+\begin{equation}\label{eq:wasserstein}
+W_p(D,D') =
+\left(
+\inf_{\gamma}
+\sum_{x\in D}\|x-\gamma(x)\|_\infty^p
+\right)^{1/p},
+\end{equation}
+where matching diagram points to the diagonal is allowed. From the distance matrix $A_{ij}=W(D_i,D_j)$, within- and between-genre means are computed, and the H2 statistic is $\Delta=\bar{W}_{\text{between}}-\bar{W}_{\text{within}}$. Confidence intervals for $\Delta$ are computed by bootstrapping tracks, not pairs.
+
+\subsection{Diagram Vectorization}\label{ssec:vectorize}
+
+To pass topological features into classical ML models, persistence diagrams must be vectorized. A persistence image~\cite{adams2017persistence} was initially considered: a weighted Gaussian smoothing of the diagram on a regular grid. However, for diagrams dominated by short-lived loops (points near the diagonal), persistence images degenerated into nearly homogeneous matrices and lost the informative signal.
+
+After this diagnosis, the \textbf{Betti curve} was selected. For each filtration threshold $\tau_\ell$ on a grid ($q=20$ points in the main experiments), the number of live $H_1$ classes is counted:
+\begin{equation}\label{eq:betti}
+\beta_D(\tau_\ell)=
+\sum_i \mathbf{1}\{b_i\le \tau_\ell < d_i\},
+\qquad \ell=1,\ldots,q.
+\end{equation}
+The grid range is fixed on the training part, so train/test and real/surrogate vectors lie in the same coordinate system. The Betti curve proved empirically more informative than persistence images under the chosen grid and parameters, although it does not itself suppress short-lived classes and still requires control of the filtration range.
+
+\subsection{Surrogate Controls}\label{ssec:surrogates}
+
+The core of the methodology is a \textbf{ladder of three surrogate controls}, each destroying a different property of the signal. The surrogate is applied before Takens embedding, i.e.\ to the time series $X$, not to the already constructed point cloud $Z$. For each control type, $K=20$ realizations are generated.
+
+\begin{enumerate}
+    \item \textbf{Shuffle}: frames of the original sequence are randomly permuted before Takens embedding:
+    \begin{equation}\label{eq:shuffle}
+    X^{\text{shuf}}=(x_{\pi(1)},\ldots,x_{\pi(T)}).
+    \end{equation}
+    This destroys temporal order entirely. Null hypothesis: the observed topology is explained only by the distribution of frames, not their order.
+
+    \item \textbf{Phase randomization}: for each frequency component, the DFT is taken, amplitudes are preserved, and phases are randomized. For a multivariate sequence $X\in\mathbb{R}^{T\times m}$, one random phase $\phi_\omega$ per frequency~$\omega$ is shared across all PCA components:
+    \begin{equation}\label{eq:phase}
+    \widehat{X}^{\text{rand}}_j(\omega)
+    =
+    \widehat{X}_j(\omega)\,e^{i\phi_\omega},
+    \qquad j=1,\ldots,m,
+    \qquad
+    \phi_\omega\sim U(0,2\pi).
+    \end{equation}
+    The DC component and Nyquist frequency are fixed so the inverse transform remains real. Because the same multiplier $e^{i\phi_\omega}$ is applied to all coordinates, the cross-spectral matrix is preserved. Null hypothesis: the topology is explained by linear-spectral smoothness.
+
+    \item \textbf{IAAFT}~\cite{schreiber1996improved} (Iteratively Amplitude-Adjusted Fourier Transform): preserves both the amplitude spectrum and the empirical distribution of values, componentwise. At each iteration, the current signal $y$ first receives the target spectrum:
+    \begin{equation}\label{eq:iaaft}
+    y \leftarrow \mathcal{F}^{-1}\!\left(|\widehat{x}|\frac{\widehat{y}}{|\widehat{y}|}\right),
+    \end{equation}
+    then its values are replaced by rank matching to the original sorted values. Iterations stop by relative spectral error or at the limit of 200 iterations. Null hypothesis: the topology is explained by preserved componentwise spectrum and distribution.
+\end{enumerate}
+
+The three null hypotheses are not strictly nested. The phase surrogate preserves cross-component spectral structure; IAAFT does not, because it is componentwise, but it preserves empirical marginal distributions.
+
+For each track, the null level is estimated by $\overline{\mathrm{mp}}^{(c)}_i=\frac{1}{K}\sum_{k=1}^{K}\mathrm{mp}(D_i^{(c,k)})$, and the track-level difference $\delta_i^{(c)}=\mathrm{mp}(D_i)-\overline{\mathrm{mp}}^{(c)}_i$ is used for the paired Wilcoxon test and rank-biserial effect size.
+
+\subsection{Statistical Framework}\label{ssec:stats}
+
+\textbf{Effect sizes first, $p$-values second.} With 999 tracks, there are approximately 500\,000 diagram pairs; at this scale, $p$-values such as $10^{-165}$ are a warning sign, not a triumph. The primary reported quantities are rank-based effect sizes: rank-biserial correlation (Cliff's~$\delta$).
+
+\textbf{Track-level bootstrap.} Diagram pairs are dependent because each track appears in many pairs. Pair-level bootstrap underestimates confidence intervals. The correction is aggregation to track-level statistics followed by bootstrap over tracks (1000 iterations).
+
+\textbf{Mantel test.} To compare pairwise distance matrices between representations, rows and columns are permuted synchronously, rather than simply correlating upper triangles under invalid elementwise shuffling.
+
+\textbf{FDR correction}~\cite{benjamini1995controlling} (Benjamini--Hochberg) is applied within meaningful test families:
+\texttt{controls\_shuffle}~(4~tests),
+\texttt{controls\_persistence}~(8),
+\texttt{mantel}~(3), and
+\texttt{chroma\_loop}~(192~tracks).
+
+\textbf{Pseudoreplication is removed}: in the shuffle test, aggregation by track before Wilcoxon prevents treating $K$ surrogate realizations as independent observations.
+
+\textbf{Permutation test for H-loop}: instead of an unpaired Mann--Whitney test on dependent pairs, a permutation test is used over random time-point sets within each track.
+
+\subsection{Downstream Classification}\label{ssec:classify}
+
+To assess practical usefulness (H5), genre classification was performed on the 10 GTZAN genres. Two classifiers were used:
+\begin{itemize}
+    \item \textbf{LogisticRegression} (L2): a linear model for assessing linear separability of features~\cite{pedregosa2011sklearn}.
+    \item \textbf{HistGradientBoostingClassifier} (HGB): a nonlinear model. It tests whether topological features become practically useful under a more expressive classifier; if performance remains near chance or comparable to surrogates, the ``weak linear classifier'' loophole is closed.
+\end{itemize}
+
+Six feature sets were used:
+\texttt{topology} (Betti curves of real data);
+\texttt{topology@shuffle}, \texttt{topology@phase}, \texttt{topology@IAAFT} (Betti curves of surrogates, averaged over $K$~realizations);
+\texttt{mean\_pool} (time average of the preprocessed sequence); and
+\texttt{concat} (concatenation of topology and mean\_pool).
+
+Performance is evaluated on a fixed stratified test split by macro-F1:
+\begin{equation}\label{eq:macrof1}
+\operatorname{macroF1}=\frac{1}{G}\sum_{g=1}^{G}
+\frac{2\,\operatorname{precision}_g\,\operatorname{recall}_g}
+{\operatorname{precision}_g+\operatorname{recall}_g},
+\end{equation}
+with bootstrap confidence intervals (1000 resamples, 95\%).
+
+\subsection{Loop Localization Analysis}\label{ssec:loop}
+
+For H-loop, the most persistent $H_1$ class is identified. Two types of representative are distinguished:
+\begin{itemize}
+    \item \textbf{Cocycle} (Ripser): the standard Ripser output is a representative cocycle in cohomology. Its vertex support is not a geometric loop contour. On real tracks, median support is 85 points out of 300; on a reference circle it covers about 60\% of points.
+    \item \textbf{Cycle} (Dionysus~\cite{morozov_dionysus}): a representative cycle in homology, computed with Dionysus. It is not canonical, shortest, or optimal, but is about twice as compact as cocycle support: median 36 points out of 300.
+\end{itemize}
+An etalon comparison of these representatives on a circle is shown in Figure~\ref{fig:etalon_cycle_vs_cocycle}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{fig13_etalon_cycle_vs_cocycle}
+    \caption{Etalon comparison of cycle and cocycle representatives on a circle.}
+    \label{fig:etalon_cycle_vs_cocycle}
+\end{figure}
+
+To evaluate the chromatic correspondence of the topological loops, Chroma Energy Normalized Statistics (CENS) features are computed using the \texttt{librosa} library. The extraction process begins with calculating a standard chromagram $C(t, p)$, representing the energy of pitch class $p \in \{1, \dots, 12\}$ at frame $t$. To achieve invariance to local dynamics and loudness, the vectors are first $\ell_1$-normalized:
+\begin{equation}\label{eq:chroma_l1}
+    C_{\text{norm}}(t, p) = \frac{C(t, p)}{\sum_{q=1}^{12} C(t, q)},
+\end{equation}
+where $C(t, p)$ is the energy of pitch class $p$ at frame $t$. 
+
+Subsequently, the normalized values $C_{\text{norm}}(t, p)$ are quantized using a step function $Q(\cdot)$ to reduce the influence of noise, subtle timbral variations, and minor performance differences. The quantized sequence is then smoothed over a temporal window of length $w$ to capture broader harmonic progressions rather than isolated notes. Finally, the smoothed vectors are $\ell_2$-normalized to produce the final CENS feature vector $c(t)$ whose $p$-th component is:
+\begin{equation}\label{eq:cens}
+    c(t)_p = \frac{\sum_{k=t-w/2}^{t+w/2} Q(C_{\text{norm}}(k, p))}{\sqrt{\sum_{q=1}^{12} \left( \sum_{k=t-w/2}^{t+w/2} Q(C_{\text{norm}}(k, q)) \right)^2}},
+\end{equation}
+where $w$ is the smoothing window length, and $Q(\cdot)$ denotes the quantization step function. This $\ell_2$-normalization is crucial because it ensures that the Euclidean distance between two vectors is equivalent to their angular (cosine) distance, providing a robust and mathematically justified metric for chromatic similarity.
+
+Cycle vertices are mapped back to audio time. The test statistic is the mean cosine similarity between cycle vertices separated by at least 5~seconds:
+\begin{equation}\label{eq:chroma_test}
+S_{\text{cycle}}=
+\frac{1}{|\mathcal{Q}|}
+\sum_{(u,v)\in\mathcal{Q}}
+\frac{\langle c(t_u),c(t_v)\rangle}
+{\|c(t_u)\|\,\|c(t_v)\|},
+\qquad |t_u-t_v|\ge 5\text{\,s}.
+\end{equation}
+The null distribution is generated by selecting the same number of random time points, and the $p$-value uses the $+1$ correction: $p=\frac{1+\#\{S_{\text{null}}\ge S_{\text{cycle}}\}}{1+R}$. An example of a chromagram with localized cycle vertices is presented in Figure~\ref{fig:chromagram_example}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{fig14_chromagram_example}
+    \caption{Example of a chromagram with localized topological cycle vertices.}
+    \label{fig:chromagram_example}
+\end{figure}
+
+\subsection{Popularity Analysis}\label{ssec:popularity}
+
+For the popularity branch, each cached Spotify90 track is matched to metadata by genre and rank. For each representation space $s\in\{\mathrm{MuQ},\mathrm{MIR}\}$, the H-loop statistics are reused: maximum $H_1$ persistence $p_i^{(s)}$, the number of vertices in the representative cycle $|V_i^{(s)}|$, the temporal span $\Delta t_i^{(s)}$, and chroma similarities for the cycle and null model. The main derived statistic is chromatic excess $e_i^{(s)}=\bar{c}_{\mathrm{cycle},i}^{(s)}-\bar{c}_{\mathrm{null},i}^{(s)}$. The relation to Spotify popularity~$q_i$ is evaluated by Spearman correlation, both raw and genre-centered:
+\begin{equation}\label{eq:popularity}
+\tilde{q}_i=q_i-\bar{q}_{g(i)},\qquad
+\tilde{m}_i^{(s)}=m_i^{(s)}-\bar{m}_{g(i)}^{(s)}.
+\end{equation}
+A high-vs-low comparison uses lower and upper tertiles and a two-sided Mann--Whitney test. These tests are exploratory.
+
+\subsection{Ablation Checks and Reproducibility}\label{ssec:ablation}
+
+Robustness is tested as a set of one-factor perturbations of the same mathematical pipeline. In these checks the operator
+\[
+\mathcal P_\theta:\quad E_i\mapsto X_i^\theta\mapsto Z_i^\theta\mapsto D_i^\theta
+\]
+is recomputed under a single changed factor~$\theta$, while all other choices are held fixed. The reported ablations are run on a stratified subset of approximately 100 GTZAN tracks, 10 per genre. For each variant, the same key quantity is recomputed, for example:
+\begin{equation}\label{eq:ablation}
+E_\theta=\operatorname{rankBiserial}
+\left(
+\{\operatorname{mp}(D_i^\theta)\}_i,\;
+\{\overline{\operatorname{mp}}(D_{i,\text{shuffle}}^\theta)\}_i
+\right),
+\end{equation}
+and the spread of $E_\theta$ across variants is compared.
+
+The ablation grid covers the following factors. First, resampling is tested by comparing the baseline $f_t=25$, $w=16$, $s=4$ with a no-downsampling variant for native 75~fps representations:
+\[
+\frac{16}{25}=\frac{48}{75}=0.64\text{\,s},\qquad
+\frac{4}{25}=\frac{12}{75}=0.16\text{\,s}.
+\]
+Thus the physical Takens window and hop are preserved while the frame-rate conversion itself is removed. A linear-interpolation resampler is also compared against the Fourier resampler at the same $f_t,w,s$. This specifically checks whether the MuQ advantage could be an artifact of downsampling MERT/EnCodec from 75 to 25~fps.
+
+Second, PCA dimensionality is varied as $m\in\{16,32,64,128\}$, which changes the Takens ambient dimension from $16m=256$ to $2048$. Third, four normalization regimes are compared:
+\[
+x\mapsto S_{\mathrm{std}}(x),\qquad
+x\mapsto \frac{S_{\mathrm{std}}(x)}{\|S_{\mathrm{std}}(x)\|_2},\qquad
+x\mapsto \frac{S_{\mathrm{rob}}(x)}{\|S_{\mathrm{rob}}(x)\|_2},\qquad
+x\mapsto x,
+\]
+where $S_{\mathrm{std}}$ is mean/std scaling and $S_{\mathrm{rob}}$ is median/IQR scaling. Fourth, Takens time scale is varied as $\ell\in\{0.32,0.64,1.28,2.56\}$ seconds with
+\[
+w_\ell=\operatorname{round}(\ell f_t),\qquad
+s_\ell=\operatorname{round}(w_\ell/4).
+\]
+This is evaluated both with fixed PCA dimension $m=32$ and with an approximately fixed Takens ambient dimension using $m_\ell=\lfloor 512/w_\ell\rfloor$. Fifth, stride is varied at fixed window $w=16$ as $s\in\{8,4,2\}$, changing the cloud density
+\[
+N_s=\left\lfloor\frac{T'-w}{s}\right\rfloor+1.
+\]
+Sixth, split stability is checked over five seeds, so train-only standardization and PCA are refit on different stratified splits. Finally, the scalar persistence summary is varied: besides maximum lifetime, top-3 mean lifetime, total lifetime, number of loops with lifetime $>0.05$, persistence entropy, and Betti-curve area are evaluated. Distance concentration is monitored by
+\[
+\kappa(Y)=
+\frac{\operatorname{std}_{i<j}\|y_i-y_j\|_2}
+{\operatorname{mean}_{i<j}\|y_i-y_j\|_2}
+\]
+for raw frames, PCA-normalized frames, and Takens clouds.
+
+Reproducibility is ensured by a fixed base seed $s_0=42$ and deterministic seeds at the track and repetition level:
+\begin{equation}\label{eq:seeds}
+\text{seed}_{\text{shuffle}}=1000 s_0+100i+k,\quad
+\text{seed}_{\text{phase}}=2000 s_0+100i+k,\quad
+\text{seed}_{\text{IAAFT}}=3000 s_0+100i+k,
+\end{equation}
+where $i$ is the track index and $k$ the repetition index. PCA is computed with deterministic full SVD so the final coordinate system does not depend on batch order.

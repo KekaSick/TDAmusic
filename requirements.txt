@@ -1,0 +1,41 @@
+# Music-TDA pinned direct dependencies
+# Tested with Python 3.11.
+#
+# Notes:
+# - Keep numpy in the 1.x branch: ripser / giotto-tda / librosa stacks are
+#   sensitive to NumPy ABI changes.
+# - torch and torchaudio must be from the same release line.
+# - If you need CUDA-specific PyTorch wheels, install torch/torchaudio from the
+#   official PyTorch index with the same versions, then install the rest.
+
+# Core numeric stack
+numpy==1.26.4
+scipy==1.16.3
+pandas==2.2.3
+scikit-learn==1.3.2
+joblib==1.3.2
+statsmodels==0.14.4
+
+# Audio / embedding extraction
+torch==2.1.1
+torchaudio==2.1.1
+transformers==4.40.2
+muq==0.1.0
+librosa==0.11.0
+soundfile==0.13.1
+
+# TDA
+ripser==0.6.12
+persim==0.3.8
+giotto-tda==0.6.2
+dionysus==2.1.1
+kmapper==2.1.0
+umap-learn==0.5.7
+
+# Visualization
+matplotlib==3.10.8
+plotly==5.18.0
+
+# Utilities
+PyYAML==6.0.1
+tqdm==4.67.0

@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environments
+.venv/
+venv/
+env/
+
+# OS/editor local files
+.DS_Store
+.claude/
+.mpl_tmp/
+.julia_depot/
+
+# Large/generated local data
+data/
+cache/
+
+# Archived/generated result artifacts
+results/tables/archviveOld/
+results/tables/results/
+results/loop_player.html
+results/figures/*
+!results/figures/paper/
+!results/figures/paper/**
+results/figures/player/
+results/figures/player_mir/
+
+# Runtime logs
+*.log

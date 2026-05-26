@@ -1,0 +1,52 @@
+The goal of the work was a rigorous audit of the applicability of TDA to trajectories of neural audio embeddings, not the development of a new music method. The results delineate where topological organization of trajectories is meaningful and where it is not.
+
+\subsection{What Trajectory Topology Captures}
+
+The most robust result is that $H_1$ loops in trajectories reflect real recurrent structure rather than computational artifacts. This conclusion is supported by the surrogate ladder testing order, linear-spectral smoothness, and value distribution. Across all four spaces, observed persistence exceeds all three surrogates with large effect sizes (rank-biserial~$\approx 0.9$--$1.0$). This means:
+\begin{itemize}
+    \item \textbf{Temporal recurrence}: the signal returns to nearby states due to internal trajectory dynamics, not by chance.
+    \item \textbf{A component beyond the phase surrogate}: real data exceed a linear-spectral control in all four channels.
+    \item \textbf{Sensitivity to temporal order}: shuffle destroys loops with maximal effect, so frame order, not only frame distribution, is a source of geometry.
+\end{itemize}
+
+\subsection{What Trajectory Topology Does Not Capture}
+
+When the question shifts from ``is the structure real?'' to ``does it carry semantic information?'', the answer is negative along several independent lines:
+\begin{itemize}
+    \item \textbf{Genre membership}: topological features reach only F1~$\approx 0.22$--$0.23$ versus $0.82$ for mean\_pool. The ``weak classifier'' loophole is closed: genre signal is absent from topology, not merely inaccessible to a linear model.
+    \item \textbf{Timbral identity}: genre is encoded in average position in feature space (mean\_pool), not in path geometry.
+    \item \textbf{Cross-model invariance}: topological organization depends strongly on the embedding model. Distance-matrix correlations are weak even between SSL models ($r=0.28$) and negligible compared to the codec.
+    \item \textbf{Musical repetitions in most tracks}: only about 27\% of tracks show chromatic recurrence along the homological cycle; for the rest, the loop exists geometrically but is not concentrated on repeated sections.
+\end{itemize}
+
+\subsection{Methodological Insight: Strict Surrogates Matter More Than Shuffle}
+
+The difference between shuffle and stricter smooth surrogates is crucial. Real trajectories exceed shuffle almost perfectly in every channel, but in downstream classification the advantage of topology over phase/IAAFT is small or absent. Thus, shuffle only answers whether temporal order matters; it does not establish musical or genre-level content. Phase and IAAFT controls are therefore necessary: they separate crude order effects from structure beyond smooth correlated processes.
+
+\subsection{Limitations}
+
+Several pipeline choices must be explicitly recognized as limitations.
+
+\textbf{Takens-induced recurrence.} Delay embeddings naturally tend to generate loop-like geometry for periodic and quasiperiodic signals. The mere existence of $H_1$ loops is not evidence by itself; evidential value arises only through comparison with surrogates.
+
+\textbf{Dependence on PCA.} Explained variance in 32 components differs substantially: EnCodec~$\approx 84\%$, MERT~$\approx 36\%$, MuQ~$\approx 22\%$. Point clouds live in spaces with different information content, complicating direct comparison of absolute persistence values.
+
+\textbf{Unit-sphere normalization} is applied before PCA and is a deliberate choice to analyze shape rather than energy. This is a substantive decision affecting cloud geometry, not a neutral technical detail.
+
+\textbf{Heuristic embedding parameters} (window${}=16$, stride${}=4$). Robustness to variation was tested by sensitivity analysis, but optimality is not guaranteed.
+
+\textbf{Componentwise IAAFT} does not preserve cross-spectral dependencies between components, so the surrogate ladder is not strictly nested.
+
+\textbf{H-loop null model.} The chroma test compares cycle vertices with random time points of the same size and uses only pairs separated by at least 5~seconds. This reduces local autocorrelation effects but does not fully control the temporal geometry of the cycle.
+
+\textbf{Popularity analysis} is strongly sample-biased: it uses only cached Spotify90 embeddings for top tracks from four genres. The absence of correlation should be read narrowly.
+
+\textbf{GTZAN defects}: known label errors and duplicates introduce noise in genre labels~\cite{sturm2013gtzan}.
+
+\subsection{Methodological Lessons}
+
+\textbf{Diagram vectorization is critical.} The same topological signal looked absent under persistence images, which degenerated for near-diagonal loops, but became visible under Betti curves. The fragility of the ``TDA~$\to$~ML'' bridge becomes apparent only when vectorization is diagnosed.
+
+\textbf{Significance is not usefulness.} With 999 tracks, a tiny gap becomes statistically significant due to sample size. It does not imply predictive power. Downstream metrics with bootstrap confidence intervals are more informative than a single $p$-value.
+
+\textbf{Cocycle vs.\ cycle.} The standard Ripser output is a cocycle; its vertex support is not a geometric loop contour. For temporal interpretation, a homological representative cycle is more appropriate and is about twice as compact in this dataset. Ignoring this distinction nearly doubles the estimated fraction of ``meaningful'' loops.

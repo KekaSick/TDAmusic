@@ -1,0 +1,43 @@
+\subsection{Topological Data Analysis and Persistent Homology}
+
+Persistent homology is a central tool in TDA. For a point cloud, a simplicial complex such as Vietoris--Rips is built as the radius grows, and topological features (connected components~$H_0$, loops~$H_1$, voids~$H_2$) are born and die at certain thresholds. A persistence diagram is a multiset of birth--death pairs and provides a stable descriptor of data shape. The theoretical foundations and stability properties are developed in the work of Edelsbrunner and Harer, Chazal et~al.~\cite{cohen2007stability}, and related literature. Persistence images~\cite{adams2017persistence}, Betti curves, and persistence landscapes~\cite{bubenik2015statistical} provide stable vector representations suitable for machine learning.
+
+\subsection{TDA for Audio and Music}
+
+TDA has previously been applied to music mainly in settings involving self-similarity matrices, chroma features, or symbolic representations. Classical approaches often analyze temporal signals directly through sliding-window persistence~\cite{perea2015sliding} for periodicity in time series, or measure similarity and repetitions through chroma representations~\cite{serra2008chroma}. 
+
+Recent advances include applying persistent homology to log-mel spectrograms for robust audio fingerprinting~\cite{reise2024topological}, and analyzing symbolic music graphs. However, there is a significant research gap: as of mid-2026, there are no published works applying persistent homology directly to the latent trajectories of modern deep music foundation models (e.g., MERT, MuQ) for musical similarity or genre analysis. Applying TDA directly to trajectories of neural embeddings, rather than to raw signals or self-similarity matrices, is thus an open direction.
+
+\subsection{Why Frame-Level Embeddings Are Required for TDA}
+
+A crucial distinction for the present work is between \textit{clip-level embeddings} and \textit{frame-level embedding trajectories}. In the landscape of deep audio embeddings, many models are optimized for tagging or contrastive retrieval (e.g., VGGish~\cite{hershey2017vggish}, YAMNet, CLAP~\cite{wu2023large}, MuLan). These architectures typically output a single pooled vector per clip, most often via global mean-pooling or a CLS token.
+
+While highly effective for semantic similarity and zero-shot classification, global pooling operations completely destroy the temporal locality and moment-to-moment dynamics of the track. Since persistent homology in this context is explicitly applied to the shape of a track's path in feature space to find recurrent geometry, the representation must preserve temporal order and output a sequence of vectors. For TDA, mean-pooling is a destructive operation that collapses a trajectory in $\mathbb{R}^{T \times D}$ into a single centroid in $\mathbb{R}^D$, erasing the very loops that $H_1$ homology aims to detect. 
+
+\subsection{Neural Audio Embeddings Used in This Work}
+
+To explore the topology of trajectories, this work specifically selects representations that provide frame-level sequences, covering three fundamentally different inductive biases: self-supervised semantic learning, codec reconstruction, and hand-crafted signal processing.
+
+\textbf{MERT}~\cite{li2023mert} is a widely used acoustic music understanding model based on a BERT-style Transformer encoder. It provides high-resolution 75~Hz frame-level hidden states, making it a strong music-specific foundation baseline.
+
+\textbf{MuQ}~\cite{zhu2025muq} is a newer Conformer-based music SSL model trained with a Mel Residual Vector Quantization (Mel-RVQ) objective. It outputs 25~Hz embeddings and provides a modern, computationally efficient alternative to MERT with a different temporal resolution and architecture.
+
+\textbf{EnCodec}~\cite{defossez2022encodec} is not a semantic SSL model, but a neural audio codec. The continuous latent space before quantization provides a compact 128-dimensional representation at 75~Hz. Its inclusion tests whether topological structures arise not only from semantic music training but also from pure acoustic reconstruction geometry.
+
+\textbf{MIR features} (librosa~\cite{mcfee2015librosa}) serve as a classical, interpretable low-dimensional baseline (chroma and spectral features). It preserves explicit frame-level structure and helps determine if topological findings are exclusive to deep foundation models or exist in classical descriptors.
+
+This selection is intentionally heterogeneous. If topological effects were observed only in MERT or MuQ, they could be interpreted as artifacts of a specific SSL objective. By including EnCodec and MIR, the work tests whether recurrent topology is a property of semantic music representations, reconstruction-oriented audio latents, or more general frame-level audio descriptors.
+
+\subsection{Layer Choice in Transformer Audio Models}
+
+For Transformer-based models, the choice of the extracted layer significantly impacts the representation's geometry. Intermediate layers were preferred over final pooled outputs because Transformer layers encode different levels of abstraction. 
+
+Evaluations on benchmarks like MARBLE~\cite{yuan2023marble} show that early layers tend to preserve local acoustics, and later layers specialize heavily toward acoustic tokens or pretraining objectives. Middle layers (e.g., 5--9 for 95M-parameter models, or 13--18 for 330M-parameter models) provide the best compromise for extracting musically relevant properties such as pitch, harmony, and structural context. Therefore, MERT layer 7 and MuQ layer 10 were deliberately chosen as contextual frame-level representations that still preserve the temporal trajectory needed for Takens embedding and subsequent topological analysis.
+
+\subsection{Delay Embedding and Takens' Theorem}
+
+Takens' theorem~\cite{takens1981detecting} motivates the use of delay embeddings for time series: under certain conditions, such an embedding preserves the structure of the phase space up to a smooth transformation. Further theoretical developments include the embedology framework~\cite{sauer1991embedology} and practical methods for selecting embedding parameters via Average Mutual Information (AMI)~\cite{fraser1986independent} and False Nearest Neighbors (FNN)~\cite{kennel1992determining, wallot2018calculation}.
+
+However, classic parameter selection methods like AMI and FNN were originally formulated for reconstructing phase spaces from scalar (1D) time series. In the context of modern neural audio embeddings, the "observable" is already a dense, high-dimensional vector (e.g., up to 1024 dimensions, or 32 dimensions after PCA). Applying FNN to a sequence of such high-dimensional vectors to find an optimal embedding dimension becomes computationally prohibitive and conceptually mismatched. In extremely high-dimensional spaces, the curse of dimensionality renders spatial neighborhoods sparse, making the ratio of false to true nearest neighbors highly unstable and uninformative. Consequently, this work treats the sliding window approach not as a strict chaotic phase space reconstruction, but rather as a geometric heuristic to convert the temporal order of high-dimensional frames into point-cloud geometry. The delay parameters are therefore chosen empirically, and the validity of the resulting topological structures is verified against robust surrogate controls rather than intrinsic phase-space metrics.
+
+At the same time, Takens-style embeddings naturally tend to produce recurrent and loop-like geometry for periodic or quasiperiodic signals, not only for music. Therefore, the mere presence of $H_1$ loops in a delay-embedded cloud is not evidence of specifically musical structure. The loops must be compared against surrogate controls~\cite{schreiber1996improved} that destroy different properties of the time series. This theoretical consideration directly motivates the surrogate ladder used in the work.

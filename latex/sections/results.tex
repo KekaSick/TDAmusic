@@ -1,0 +1,318 @@
+\subsection{H1~--- Reality of Topological Loops}\label{ssec:h1}
+
+This is the strongest and most robust result of the work. The surrogate-control ladder is summarized in Table~\ref{tab:h1_persistence} and Figure~\ref{fig:h1_max_persistence}.
+
+\begin{table}[htbp]
+\caption{Mean maximum $H_1$ persistence over tracks by channel and condition}\label{tab:h1_persistence}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Channel & Real & Shuffle & Phase & IAAFT \\
+\midrule
+MERT    & 0.465 & 0.154 & 0.324 & 0.333 \\
+MuQ     & 0.326 & 0.111 & 0.233 & 0.228 \\
+EnCodec & 0.374 & 0.213 & 0.266 & 0.263 \\
+MIR     & 1.595 & 0.323 & 1.248 & 1.267 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig02_h1_max_persistence}
+    \caption{Maximum $H_1$ persistence for real tracks compared to surrogate controls.}
+    \label{fig:h1_max_persistence}
+\end{figure}
+
+Rank-biserial effect sizes are shown in Table~\ref{tab:h1_effect}.
+
+\begin{table}[htbp]
+\caption{Rank-biserial effect sizes for real vs.\ surrogate comparisons across all four channels}\label{tab:h1_effect}
+\centering
+\begin{tabular}{lc}
+\toprule
+Comparison & Effect size (all 4 channels) \\
+\midrule
+Real vs.\ shuffle & 0.998--1.000 (large) \\
+Real vs.\ phase   & 0.90--0.99 (large) \\
+Real vs.\ IAAFT   & 0.89--0.99 (large) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All tests have $p<0.001$ (actual $p$-values are around $10^{-130}$ to $10^{-165}$; they are reported as $p<0.001$ because such extreme values mostly reflect large sample size).
+
+\textbf{Conclusion:} $H_1$ loops in embedding trajectories do not reduce to point order destruction (shuffle), the chosen linear-spectral surrogate (phase), or componentwise preserved spectrum and distribution (IAAFT). The topology detects robust recurrent structure. The important caveat is that this result characterizes trajectories in particular embedding spaces, not ``the topology of music'' as such.
+
+\subsection{H2~--- Within-/Between-Genre Distances}\label{ssec:h2}
+
+The gap is defined as $\Delta = \bar{W}_{\text{between}} - \bar{W}_{\text{within}}$, with track-level 95\% bootstrap CI (see Table~\ref{tab:h2} and Figure~\ref{fig:h2_within_between}).
+
+\begin{table}[htbp]
+\caption{Within- and between-genre Wasserstein distances with genre gap}\label{tab:h2}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Channel & Within & Between & Gap & 95\% CI \\
+\midrule
+MuQ     & 13.55 & 16.16 & 2.60 & [2.38, 3.13] \\
+EnCodec & 14.55 & 16.12 & 1.56 & [1.34, 2.11] \\
+MIR     & 17.23 & 18.50 & 1.27 & [1.21, 1.72] \\
+MERT    & 14.85 & 16.04 & 1.19 & [1.08, 1.61] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig03_h2_within_between}
+    \caption{Within-genre and between-genre Wasserstein distances.}
+    \label{fig:h2_within_between}
+\end{figure}
+
+All confidence intervals exclude zero, so the hypothesis is formally supported. However, the effect size is small: the gap is only about 0.4--0.9 within-genre standard deviations (within-std~$\approx$~2.9--4.9). The between-genre difference is drowned by within-genre variation.
+
+\textbf{Conclusion:} H2 is weakly supported: statistically significant but not practically strong. Topological shape is only weakly genre-specific.
+
+\subsection{H3~--- Nonlinear Temporal Structure}\label{ssec:h3}
+
+Comparison of real data with phase surrogates by maximum $H_1$ persistence is shown in Table~\ref{tab:h3} and Figure~\ref{fig:h3_phase_effect}.
+
+\begin{table}[htbp]
+\caption{Real vs.\ phase surrogate comparison by maximum $H_1$ persistence}\label{tab:h3}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Channel & Real & Phase & Rank-biserial \\
+\midrule
+MERT    & 0.465 & 0.324 & 0.972 \\
+MuQ     & 0.326 & 0.233 & 0.995 \\
+EnCodec & 0.374 & 0.266 & 0.925 \\
+MIR     & 1.595 & 1.248 & 0.901 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig04_h3_phase_effect}
+    \caption{Comparison of real data with phase surrogates by maximum $H_1$ persistence.}
+    \label{fig:h3_phase_effect}
+\end{figure}
+
+In all four spaces, real trajectories exceed phase surrogates with large effect sizes. This indicates a component of recurrent geometry that is not explained by the chosen linear-spectral surrogate. Interpreting this as nonlinear structure is plausible, but it is not a strict proof of nonlinearity in the dynamical-systems sense.
+
+\textbf{Conclusion (careful H3 formulation):} the experiment does not test ``musicality'' as such; that would require comparison to non-musical audio. It tests whether observed topology exceeds a concrete phase surrogate. The answer is positive for all four representations, though the effect magnitude differs: stronger for MuQ/MERT and lower for EnCodec/MIR.
+
+\subsection{H4~--- Representation Consistency}\label{ssec:h4}
+
+The Mantel test with permutations between pairwise Wasserstein distance matrices is shown in Table~\ref{tab:h4}.
+
+\begin{table}[htbp]
+\caption{Mantel test results for cross-representation consistency}\label{tab:h4}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Pair & $r$ & $p$ & 95\% CI \\
+\midrule
+MERT--MuQ & 0.279 & 0.0001 & [0.245, 0.319] \\
+MERT--EnCodec & 0.005 & 0.7553 & [$-$0.023, 0.046] \\
+MuQ--EnCodec & 0.064 & 0.0001 & [0.037, 0.105] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+MERT--MuQ has a weak correlation ($r=0.28$), plausibly because both are SSL music-related models. MuQ--EnCodec shows a tiny correlation ($r=0.064$) with a small $p$-value: a clear example of significance driven by sample size rather than effect magnitude. MERT--EnCodec is not significant.
+
+\textbf{Conclusion:} H4 is not supported. Topological organization depends strongly on representation. Different embedding spaces do not share a common topological structure.
+
+\subsection{H5~--- Genre Classification}\label{ssec:h5}
+
+Classification results for the MuQ channel are shown in Figure~\ref{fig:h5_classification} (chance~$\approx 0.10$).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig06_h5_classification}
+    \caption{Genre classification macro-F1 across features and models.}
+    \label{fig:h5_classification}
+\end{figure}
+
+Three independent arguments against H5:
+\begin{enumerate}
+    \item \textbf{Absolute gap}: topology~$\approx 0.22$ versus baseline~$\approx 0.82$. Topology is near chance; the baseline is much better.
+    \item \textbf{Classifier loophole closed}: HGB improves the baseline ($0.82$ vs.\ $0.67$) but does not make topological features practically useful (MuQ: $0.219$ vs.\ $0.217$ for LogReg; the phase-surrogate HGB score is even higher than real topology). Thus the issue is not simply a weak linear model.
+    \item \textbf{Concatenation}: for HGB, concat~$\approx$ baseline ($0.825$ vs.\ $0.818$); topology adds no value. For LogReg, it even hurts ($0.512$ vs.\ $0.670$).
+\end{enumerate}
+
+The applicability map by channel is summarized in Table~\ref{tab:h5_channels}.
+
+\begin{table}[htbp]
+\caption{Classification macro-F1 by channel (LogReg unless otherwise noted)}\label{tab:h5_channels}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Channel & F1 real & F1 shuffle & F1 phase & Signal above controls \\
+\midrule
+MuQ & 0.217 & 0.141 & 0.214 & above shuffle, not above phase \\
+EnCodec & 0.193 & 0.183 & 0.170 & CIs overlap \\
+MERT & 0.182 & 0.104 & 0.152 & weak, near chance \\
+MIR & 0.133 & 0.113 & 0.241 & phase above real \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Conclusion:} H5 is not supported. Genre is encoded mainly in timbre and average position in feature space, not in trajectory shape.
+
+\subsection{H-loop~--- Chromatic Correspondence of Loops to Repeated Sections}\label{ssec:hloop}
+
+Progression as methodology was corrected is shown in Table~\ref{tab:hloop} and Figure~\ref{fig:hloop_progression}.
+
+\begin{table}[htbp]
+\caption{H-loop: fraction of significant tracks as methodology was corrected}\label{tab:hloop}
+\centering
+\begin{tabular}{lc}
+\toprule
+Method & Significant tracks \\
+\midrule
+Cocycle + unpaired Mann--Whitney & ${\sim}55\%$ \\
+Cocycle + permutation test & ${\sim}43\%$ raw, 35\% FDR \\
+Dionysus cycle + permutation + FDR & 34\% raw, \textbf{27\% (52/192)} FDR \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{fig07_hloop_progression}
+    \caption{Progression of H-loop significant track fraction as methodology was corrected.}
+    \label{fig:hloop_progression}
+\end{figure}
+
+The original estimate (${\sim}55\%$) was almost two times too high due to two artifacts: (1)~cocycle support is not a loop contour (median 85 points out of 300 versus median 36 for a homological cycle, as compared in Figure~\ref{fig:cycle_vs_cocycle}), and (2)~the unpaired test treated dependent comparisons as independent observations.
+
+\begin{figure}[H]
+    \centering
+    \makebox[\textwidth][c]{\includegraphics[width=1.05\textwidth]{fig09_cycle_vs_cocycle}}
+    \caption{Comparison of cycle and cocycle supports on empirical Takens embeddings of audio.}
+    \label{fig:cycle_vs_cocycle}
+\end{figure}
+
+The honest estimate (chroma permutation test on a Dionysus cycle, FDR) is that about 27\% of tracks (52/192 under master FDR; a direct cycle-table flag gives 53/192 because of one borderline track near the 0.05 threshold) show increased chromatic similarity among cycle vertices. Among tracks in the top quartile of persistence, the rate is about 45\%, but the dependence on persistence is weak.
+
+\textbf{Conclusion:} H-loop is weakly and partially supported. For a minority of tracks, the homological cycle is localized on harmonically recurring sections. The correct formulation is: for about 27\% of tracks, the cycle detects chromatic recurrence.
+
+\subsection{Robustness Analysis}\label{ssec:robustness}
+
+Systematic ablation on a stratified subset (${\sim}100$ tracks, 10 per genre) is summarized in Table~\ref{tab:robustness} and Figure~\ref{fig:robustness_panel}.
+
+\begin{table}[htbp]
+\caption{Robustness analysis: sensitivity to pipeline parameters}\label{tab:robustness}
+\centering
+\begin{tabular}{lp{9cm}}
+\toprule
+Factor & Conclusion \\
+\midrule
+Random split (5 seeds) & Real-vs-shuffle effect $= 1.0 \pm 0.0$; gap varies but sign is stable \\
+PCA dimension (16--128) & Effect is stable; gap grows with number of components \\
+Normalization (4 variants) & Loop robustness remains; StandardScaler~$\approx$~RobustScaler (gap 3.43 vs 3.44) \\
+Window stride ($s=w/2,w/4,w/8$) & Gap decreases with stride; sign remains stable \\
+Window length (0.32--2.56\,s) & Gap from ${\sim}6$ (0.3\,s) to ${<}1$ (2.5\,s); channel order preserved \\
+Resampling method (Fourier vs linear) & Qualitative picture unchanged \\
+MERT/EnCodec resampling confound & Without resampling, gap does not increase: MERT 0.60 (base 0.76), EnCodec 1.47 (base 1.49); MuQ advantage is model-related \\
+Persistence metric & Max-persistence is stable; aggregate loop counts are unstable because shuffle creates many short-lived loops \\
+Distance concentration & Takens CV $\approx 0.10$ compresses absolute persistence but does not remove real-vs-control separation \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig10_robustness_panel}
+    \caption{Robustness analysis panel across various factors.}
+    \label{fig:robustness_panel}
+\end{figure}
+
+The distance-concentration row should be interpreted as a diagnostic rather than a pass/fail test: in a high-dimensional Takens space, pairwise distances become compressed, so absolute persistence values are parameter-sensitive. The relevant observation is that the separation from surrogate controls remains.
+
+The persistence-metric ablation is also important. Max-persistence tracks the most prominent loop and remains stable across controls. Aggregate metrics such as total loop count or total persistence are less reliable because shuffle can generate many short-lived noisy cycles; therefore they can change sign even when the dominant-loop conclusion is stable. This stability is illustrated in Figure~\ref{fig:persistence_metrics}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig11_persistence_metrics}
+    \caption{Ablation of various persistence metrics and their stability.}
+    \label{fig:persistence_metrics}
+\end{figure}
+
+\textbf{Conclusion:} the central result (real loops~$>$ controls) is robust. Absolute metric values are parameter-sensitive, but their sign and channel order are not.
+
+\subsection{Multiple-Comparison Control}\label{ssec:fdr}
+
+In any study conducting numerous statistical tests across different models, channels, and individual tracks, there is a high risk of inflated Type I error (false positives). To rigorously control for this, the Benjamini--Hochberg False Discovery Rate (FDR) correction was applied. Rather than applying a single blanket correction to all tests---which would overly penalize independent hypotheses---the correction was applied within logically distinct ``test families'' (see Table~\ref{tab:fdr}).
+
+\begin{table}[htbp]
+\caption{FDR correction results by test family}\label{tab:fdr}
+\centering
+\begin{tabular}{lcc}
+\toprule
+Family & Tests & Significant after BH \\
+\midrule
+controls\_shuffle & 4 & 4 (all) \\
+controls\_persistence & 8 & 8 (all) \\
+mantel & 3 & 2 (MERT--MuQ, MuQ--EnCodec) \\
+chroma\_loop\_cycle & 192 & 52 (27\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Explanation of test families:}
+\begin{itemize}
+    \item \textbf{\texttt{controls\_shuffle} and \texttt{controls\_persistence}:} These families cover the tests for H1 and H3, comparing real persistence against Shuffle, Phase, and IAAFT surrogates across the four representation channels. All tests survived FDR control, confirming that the topological reality of loops is a robust, system-wide phenomenon rather than a statistical fluke in a single channel.
+    \item \textbf{\texttt{mantel}:} This family controls the pairwise Mantel tests evaluating cross-representation consistency (H4). The weak consistency between MERT/MuQ and MuQ/EnCodec survived, while MERT/EnCodec remained non-significant, reinforcing the conclusion that different models induce fundamentally different topological geometries.
+    \item \textbf{\texttt{chroma\_loop\_cycle}:} This is the most critical correction. The H-loop hypothesis required running 192 independent permutation tests (one for each track). Without correction, 65 tracks (${\sim}34\%$) showed raw $p < 0.05$. After applying the strict Benjamini--Hochberg FDR control to this family of 192 tests, 52 tracks ($27\%$) remained significant. This proves that for a distinct minority of tracks, the alignment of the topological cycle with chromatic musical recurrence is a genuine effect, not an artifact of testing 192 songs simultaneously.
+\end{itemize}
+
+\textbf{Conclusion:} The survival of the core findings through strict FDR control confirms that the methodological framework successfully filters out random noise. The results regarding real topological loops, representation-specific geometry, and track-level chromatic correspondence are statistically robust.
+
+\subsection{Popularity and Topological Findings}\label{ssec:popularity_results}
+
+As an additional exploratory analysis, Spotify popularity was tested against topological loop statistics for the 198 matched tracks. The matched subset covers only four genres (electronic, hip-hop, pop, reggae), all with popularity from 56 to 99 (median~83). Therefore, this analysis cannot answer whether popular music differs from unpopular music; it only checks whether popularity variation inside a top-track subset aligns with topology. Summary statistics are shown in Table~\ref{tab:popularity_summary}, and the main Spearman correlations are shown in Table~\ref{tab:popularity} (see also Figure~\ref{fig:popularity_correlations}).
+
+\begin{table}[htbp]
+\caption{Popularity subset summary}\label{tab:popularity_summary}
+\centering
+\small
+\begin{tabular}{lccccc}
+\toprule
+Space & $n$ & Pop. median & H-loop sig. & Mean max pers. & Mean chroma excess \\
+\midrule
+MuQ & 198 & 83 & 50.0\% & 0.353 & 0.028 \\
+MIR & 198 & 83 & 76.8\% & 1.636 & 0.049 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\caption{Spearman correlations between Spotify popularity and topological metrics}\label{tab:popularity}
+\centering
+\small
+\begin{tabular}{llcccc}
+\toprule
+Space & Metric & $\rho$ & $p$ & Genre-centered $\rho$ & Genre-centered $p$ \\
+\midrule
+MuQ & max $H_1$ persistence & $-$0.030 & 0.677 & 0.052 & 0.467 \\
+MuQ & chroma excess & $-$0.107 & 0.141 & $-$0.068 & 0.351 \\
+MIR & max $H_1$ persistence & $-$0.042 & 0.562 & $-$0.053 & 0.457 \\
+MIR & chroma excess & 0.017 & 0.812 & $-$0.120 & 0.098 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{fig08_popularity_correlations}
+    \caption{Correlations between Spotify popularity and topological metrics.}
+    \label{fig:popularity_correlations}
+\end{figure}
+
+No robust association survives this exploratory analysis. Maximum persistence, cycle size, and temporal span are essentially uncorrelated with popularity in both spaces. Chroma excess shows a weak negative tendency after genre control in MIR and in high-vs-low comparisons, but it is not significant after multiple-comparison correction and should not be interpreted as evidence of a real popularity effect. The most defensible conclusion is negative: in this top-track subset, popularity does not appear to be explained by stronger topological loops or by clearer chromatic recurrence.

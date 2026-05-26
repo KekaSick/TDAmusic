@@ -1,0 +1,15 @@
+Formally, each track is represented as a sequence of frame-level embeddings $\{e_t\}_{t=1}^{T}$, where $e_t \in \mathbb{R}^d$. From this sequence, a point cloud $X \subset \mathbb{R}^D$ is built using Takens embedding, after which persistent homology $\mathrm{PH}(X)$ is computed. The goal is to assess to what extent descriptors of $\mathrm{PH}(X)$ carry information about the musical content of the track.
+
+The following hypotheses were tested.
+
+\textbf{H1~--- Reality of loops.} The observed $H_1$ loops in embedding trajectories are not computational artifacts: their persistence significantly exceeds three surrogate controls that test the contribution of temporal order, linear-spectral smoothness, and the empirical distribution of the series.
+
+\textbf{H2~--- Genre specificity of topology.} Topological trajectory descriptors carry information about genre: the mean Wasserstein distance between diagrams of tracks from the same genre is smaller than the mean distance between tracks from different genres.
+
+\textbf{H3~--- Nonlinear temporal structure.} The observed loops contain a component beyond the chosen linear-spectral null control: the persistence of real trajectories exceeds the phase surrogate, which preserves the spectral structure of the series but destroys the original phase organization. This test is not a strict proof of nonlinearity in the dynamical-systems sense, and it does not test ``music versus non-music''; the latter would require comparison against non-musical audio, which is outside the scope of the work.
+
+\textbf{H4~--- Consistency of topological organization across representations.} Different audio embeddings reveal similar topological organization: pairwise Wasserstein distance matrices between representation spaces are correlated, tested via the Mantel test.
+
+\textbf{H5~--- Practical usefulness.} Topological descriptors are useful for genre classification: they outperform surrogate controls and complement aggregated embeddings.
+
+\textbf{H-loop.} Vertices of a representative homological cycle for the most persistent loop show increased chromatic similarity, i.e.\ a topological loop partially corresponds to harmonically repeated sections of a track.

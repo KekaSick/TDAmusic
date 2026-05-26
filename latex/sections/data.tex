@@ -1,0 +1,7 @@
+\textbf{GTZAN.} The main dataset~\cite{tzanetakis2002musical} contains 999 tracks (one defective track excluded), 10 genres (blues, classical, country, disco, hiphop, jazz, metal, pop, reggae, rock), approximately 100 tracks per genre, and 30 seconds per track. GTZAN is a standard benchmark in the literature, although it is known to contain label errors and duplicates~\cite{sturm2013gtzan}; this is taken into account when interpreting the results.
+
+Split: 80\% train and 20\% test, stratified by genre. All preprocessing components (StandardScaler, PCA) are fitted only on the training part and then applied to the test part without data leakage.
+
+\textbf{H-loop branch.} For testing H-loop, a separate collection of 199 Spotify tracks was used (central 90~seconds), with pre-annotated repetition structure. Of these, 192 tracks yielded a valid test.
+
+\textbf{Popularity branch.} For an exploratory popularity analysis, \texttt{top50\_tracks.csv} was used, which contains Spotify popularity metadata. Only tracks with already computed 90-second MuQ and MIR embeddings were analyzed: 198 matched tracks from four genres (electronic, hip-hop, pop, reggae). This is not a representative popularity dataset: it is restricted to already popular tracks and therefore has a truncated popularity range. The analysis is interpreted only as a weak exploratory check of whether topological loop statistics covary with Spotify popularity inside this biased subset.

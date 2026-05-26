@@ -1,0 +1,3 @@
+space,n_tracks,genres,popularity_min,popularity_median,popularity_max,significant_loop_rate,mean_max_persistence,mean_chroma_excess
+MIR,198,"electronic, hip-hop, pop, reggae",56.0,83.0,99.0,0.7676767676767676,1.635596103740461,0.04857446943115164
+MuQ,198,"electronic, hip-hop, pop, reggae",56.0,83.0,99.0,0.5,0.3532818321025733,0.02769106649296206

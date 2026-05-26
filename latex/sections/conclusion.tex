@@ -1,0 +1,23 @@
+This work presents a rigorous, controlled, and reproducible audit of applying TDA to trajectories of musical audio embeddings. The method reliably detects temporal recurrence structure, but it does not carry useful genre information, is not consistent across embedding models, and requires caution when selecting geometric representatives for loop interpretation.
+
+The hypothesis status is summarized in Table~\ref{tab:conclusion}.
+
+\begin{table}[htbp]
+\caption{Summary of hypothesis testing}\label{tab:conclusion}
+\centering
+\begin{tabular}{lp{9cm}}
+\toprule
+Hypothesis & Status \\
+\midrule
+H1~--- Reality of loops & \textbf{Strongly supported.} Rank-biserial~$\approx 1.0$, all surrogates, all channels \\
+H2~--- Genre specificity & \textbf{Weakly supported.} CIs exclude 0, but effect is small (gap~$\approx 0.4$--$0.9$\,std) \\
+H3~--- Nonlinear structure & \textbf{Supported with caveat.} Real~$>$ phase in all four channels; a component beyond the chosen linear-spectral surrogate, not a strict proof of nonlinearity \\
+H4~--- Cross-representation consistency & \textbf{Not supported.} Strong representation dependence; $r\le0.28$ \\
+H5~--- Genre classification & \textbf{Not supported.} Best topology F1~$\approx 0.23$ near chance vs.\ $0.82$ for mean\_pool \\
+H-loop~--- Chromatic correspondence & \textbf{Weakly and partially supported.} 27\% of tracks; chromatic recurrence, not ``loop~$=$ repetition'' \\
+Popularity vs.\ topology & \textbf{Not supported in the exploratory subset.} On 198 cached Spotify90 top tracks, popularity is not robustly correlated with persistence, cycle size, cycle span, or chroma excess \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The main contribution is not a new tool, but a \textbf{map of applicability}: a clear separation between what topological organization of embedding trajectories can measure (temporal recurrence, sensitivity to order, and a component beyond a linear-spectral surrogate) and what it cannot measure (genre semantics, timbral identity, and model-invariant properties of music). The negative results are central: finding a sharp separation between trajectory topology and genre semantics is an informative result, not a failure of the method.

@@ -1,0 +1,104 @@
+# ============================================================
+#  Music-TDA  —  единый конфиг. Менять эксперимент = менять тут,
+#  НЕ трогая код. Ablation делается копиями этого файла.
+# ============================================================
+
+seed: 42
+
+paths:
+  audio:    "data/GTZAN"
+  meta:     "data/meta/labels.csv"
+  cache:    "cache"
+  results:  "results"
+
+data:
+  sample_rate: 24000          # вход MERT/MuQ. Encodec ресемплит сам.
+  clip_seconds: 30            # GTZAN-клип
+  test_size: 0.3
+  stratify_by: "genre"
+
+# ---- какие пространства извлекать. space-agnostic downstream ----
+spaces:
+  mert:
+    model_id: "m-a-p/MERT-v1-95M"
+    layer: 7                  # средние слои 5-9 музыкальнее (см. обзор)
+    native_fps: 75             # измерено: 2250 кадров на 30s@24kHz
+    dim: 768
+  muq:
+    model_id: "OpenMuQ/MuQ-large-msd-iter"   # SSL, НЕ MuQ-MuLan!
+    layer: 10                 # пик по downstream (SongFormer 2025)
+    native_fps: 25              # измерено: 750 кадров на 30s@24kHz
+    dim: 1024
+  encodec:
+    model_id: "facebook/encodec_24khz"
+    use: "continuous"         # непрерывный латент ДО квантизации
+    native_fps: 75
+    dim: 128
+  mir:
+    # ручные фичи librosa, покадрово, БЕЗ агрегации по времени
+    hop_length: 512           # на 24kHz ≈ 46.9 fps
+    native_fps: 46.875        # = sample_rate/hop_length = 24000/512
+    dim: 15                   # chroma(12) + centroid(1) + flatness(1) + bandwidth(1)
+    features: ["chroma_cens", "spectral_centroid",
+               "spectral_flatness", "spectral_bandwidth"]
+
+# ---- общий знаменатель для КРОСС-сравнения пространств ----
+common:
+  target_fps: 25              # ресемпл кадрового ряда к нижней частоте
+  pca_dim: 32                 # единая размерность для всех пространств
+  standardize_features: true  # StandardScaler per-feature ДО нормализации
+                              # (критично для MIR: centroid ~5000, chroma ~0-1)
+  normalize: "unit_sphere"    # x / ||x||  -> евклид ~ угловое расст.
+  # Для Mantel-кросс-сравнения: ТОЛЬКО DL-каналы с единой pca_dim.
+  # MIR (d=15 < pca_dim=32) живёт в своих измерениях → Вассерштейн
+  # между разными размерностями несопоставим.
+  cross_space_compare: [mert, muq, encodec]
+
+# ---- облако точек ----
+pointcloud:
+  method: "takens"            # "takens" (для shuffle!) | "direct"
+  window: 16                  # длина окна Такенса (кадров)
+  stride: 4
+  n_points: 300               # прореживание (uniform | maxmin)
+  subsample: "none"
+  takens_pca_dim: null         # второй PCA после Такенса (null = выкл.)
+                               # при значении (напр. 20): cloud (N, D) → (N, 20)
+
+# ---- персистентные гомологии ----
+persistence:
+  maxdim: 1                   # H0, H1 (H2 опц. и дорого)
+  persistence_threshold: 0.0  # отсечка шумовых коротко-живущих классов
+  vectorization: "betti"      # "image" (persim) | "landscape" | "betti"
+  image_pixels: 20
+  image_bandwidth: 0.1
+
+# ---- контроли (ЯДРО работы) ----
+controls:
+  shuffle_repeats: 20         # перестановок временно́го ряда на трек
+  block_shuffle_frames: 75    # размер блока для перемешивания (3 секунды при 25 fps)
+  random_match_autocorr: true # random = phase randomization спектра
+                              #          реальных эмбеддингов
+  iaaft_n_iter: 200           # макс. итераций IAAFT-суррогата
+  iaaft_tol: 1.0e-8           # порог сходимости спектральной ошибки IAAFT
+# ---- сравнение / значимость ----
+distances:
+  metric: "wasserstein"       # между диаграммами
+  bootstrap: 1000             # CI для within- vs between-genre
+  mantel_n_perm: 9999         # пермутаций в Mantel-тесте значимости
+  mantel_n_boot: 2000         # бутстрап-итераций для CI Mantel-корреляции
+  chroma_n_perm: 2000          # перестановок для перестановочного теста хром-сходства
+
+# ---- robustness (проверка устойчивости к радиусу фильтрации) ----
+robustness:
+  n_test_tracks: 3                                  # top-persistence треков
+  # Подход 1: Ripser — проверка инвариантности диаграммы (секунды)
+  diagram_multipliers: [1.1, 1.3, 1.5, 2.0, 3.0]   # + inf добавляется в коде
+  # Подход 2A: Dionysus — проверка устойчивости представителя (минуты)
+  representative_multipliers: [1.1, 1.3]             # только быстрые множители
+  max_points: 150                                    # maxmin-подвыборка для Dionysus
+  span_tolerance: 0.10                               # CV(span) < 10% = устойчив
+
+# ---- downstream ----
+classify:
+  model: "logreg"             # намеренно простой: меряем фичи, не модель
+  metrics: ["accuracy", "f1_macro"]
